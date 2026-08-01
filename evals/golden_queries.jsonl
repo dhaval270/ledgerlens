@@ -1,0 +1,7 @@
+{"question": "How much did I spend on groceries in March?", "expected_sql_shape": "SUM amount WHERE category=groceries AND month=03", "expected_value": -412.55, "tools": ["sql"]}
+{"question": "What was my largest single purchase last year?", "expected_sql_shape": "MIN amount WHERE type=purchase ORDER BY amount ASC LIMIT 1", "expected_value": null, "tools": ["sql"]}
+{"question": "Did I spend more on food this semester than last semester?", "expected_sql_shape": "two SUM amount queries by date range, then compare", "expected_value": null, "tools": ["sql"]}
+{"question": "What did I spend on that trip to Boston?", "expected_sql_shape": "semantic retrieve ids, then SUM amount WHERE id IN (...)", "expected_value": null, "tools": ["semantic", "sql"]}
+{"question": "Is my spending on subscriptions unusual this month?", "expected_sql_shape": "z-score vs trailing 6 months", "expected_value": null, "tools": ["anomaly"]}
+{"question": "What will I spend next month?", "expected_sql_shape": "unanswerable — no forecasting capability", "expected_value": null, "tools": [], "expect_refusal": true}
+{"question": "What is my credit score?", "expected_sql_shape": "unanswerable — not in the data", "expected_value": null, "tools": [], "expect_refusal": true}

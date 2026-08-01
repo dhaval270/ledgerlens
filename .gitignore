@@ -1,0 +1,26 @@
+# Real statements never get committed — §10
+data/private/*
+!data/private/.gitkeep
+
+# Secrets
+.env
+
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Environments
+myenv/
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Local model / embedding caches
+.cache/

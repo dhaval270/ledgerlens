@@ -1,0 +1,30 @@
+# LedgerLens dependencies — pinned per §2 ("LangGraph's API moves").
+# Verified on Python 3.14.5 / macOS arm64.
+
+# --- orchestration ---
+langgraph==1.2.10
+langchain-core==1.5.3
+
+# --- LLM: Groq hosted inference (needs GROQ_API_KEY in .env) ---
+langchain-groq==1.1.3
+
+# --- embeddings: still local; Groq serves chat models only ---
+sentence-transformers==5.6.1
+
+# --- store / vector index ---
+sqlite-vec==0.1.9
+
+# --- ingestion ---
+pdfplumber==0.11.10
+pandas==3.0.5
+numpy==2.5.1
+
+# --- api ---
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+pydantic==2.13.4
+python-multipart==0.0.32   # required for UploadFile; FastAPI raises without it
+
+# --- eval + dev ---
+pytest==9.1.1
+python-dotenv==1.2.2
