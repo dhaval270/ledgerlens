@@ -35,8 +35,10 @@ class Question(BaseModel):
 class Answer(BaseModel):
     answer: str
     verified: bool
+    verdict: dict
     plan: list[dict]
     tool_results: list[dict]
+    answerable: bool
 
 
 @app.get("/")
@@ -90,5 +92,15 @@ async def ingest(file: UploadFile = File(...)) -> dict:
 
 @app.post("/ask", response_model=Answer)
 def ask(payload: Question) -> Answer:
-    """Run the graph and return the answer with its verification verdict."""
-    raise NotImplementedError
+    """Run the graph and return the answer with its verification verdict.
+
+    `verified` is returned alongside every answer rather than filtered on: §6.7
+    treats an unverified answer as something to surface honestly, not to hide.
+    """
+    if not DB_PATH.exists():
+        raise HTTPException(409, "No ledger yet — upload a statement via POST /ingest first")
+
+    from ..agent.graph import ask as run_agent
+
+    result = run_agent(payload.question)
+    return Answer(**result)

@@ -16,9 +16,13 @@ from langchain_groq import ChatGroq
 
 load_dotenv()
 
-# 8b matches §2's sizing and parses reliably under constrained decoding.
-# llama-3.3-70b-versatile is the alternative; §9's harness decides, not a hunch.
-DEFAULT_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+# Chosen by measurement, not by §2's sizing guidance — which assumed local
+# inference, where a 70B is impractical. On hosted Groq the 70B is strictly
+# better on the golden set: 67.4% vs 52.2% execution accuracy, 100% vs 95.7%
+# first-attempt SQL validity, and 7.6s vs 13.7s median latency (it needs no
+# repair round trips). Two prompt rewrites on the 8B moved accuracy by -4.4 and
+# -2.2 points; the model swap moved it +15.2.
+DEFAULT_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
 @lru_cache(maxsize=8)
