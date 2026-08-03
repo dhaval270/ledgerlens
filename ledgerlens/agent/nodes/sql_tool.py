@@ -171,15 +171,22 @@ def _table_counts(conn: sqlite3.Connection) -> str:
     return "\n".join(lines)
 
 
-def generate_sql(question: str, repair: str = "") -> GeneratedSQL:
+def generate_sql(question: str, repair: str = "",
+                 transaction_ids: list[int] | None = None) -> GeneratedSQL:
     from ...llm import get_structured_llm
 
     with connect_readonly() as conn:
         date_min, date_max = _date_bounds(conn)
         categories, merchants = _vocabulary(conn)
 
+    scope = ""
+    if transaction_ids:
+        ids = ", ".join(str(i) for i in transaction_ids)
+        scope = (f"\n\nRestrict the query to these transaction ids, which a "
+                 f"semantic search already selected:\n  t.id IN ({ids})")
+
     return get_structured_llm(GeneratedSQL).invoke(
-        PROMPT.format(
+        scope + PROMPT.format(
             schema=compact_schema(),
             question=question,
             date_min=date_min,
@@ -196,7 +203,8 @@ def _is_rate_limit(exc: Exception) -> bool:
     return "429" in text or "rate limit" in text.lower()
 
 
-def run_query(question: str, max_attempts: int = MAX_SQL_ATTEMPTS) -> dict[str, Any]:
+def run_query(question: str, max_attempts: int = MAX_SQL_ATTEMPTS,
+              transaction_ids: list[int] | None = None) -> dict[str, Any]:
     """Generate, screen, execute — repairing on failure. Never raises.
 
     Transport failures are not SQL failures. A 429 says nothing about the query,
@@ -215,7 +223,7 @@ def run_query(question: str, max_attempts: int = MAX_SQL_ATTEMPTS) -> dict[str, 
     while attempt < max_attempts:
         attempt += 1
         try:
-            generated = generate_sql(question, repair)
+            generated = generate_sql(question, repair, transaction_ids)
         except Exception as exc:
             if _is_rate_limit(exc) and throttle_budget > 0:
                 # Wait it out. Does not consume a repair attempt.
@@ -272,8 +280,16 @@ def sql_tool(state: AgentState) -> AgentState:
     if not targets:
         targets = [{"sub_question": state["question"]}]
 
+    # §6.5: semantic retrieval returns IDs, and SQL does the arithmetic over
+    # them. Scoping the query to those IDs is what keeps the embedding layer
+    # from ever producing a figure.
+    retrieved: list[int] = []
+    for prior in results:
+        retrieved.extend(prior.get("transaction_ids") or [])
+
     for step in targets:
-        result = run_query(step.get("sub_question", state["question"]))
+        result = run_query(step.get("sub_question", state["question"]),
+                           transaction_ids=retrieved or None)
         result["sub_question"] = step.get("sub_question", state["question"])
         results.append(result)
         attempts += result["attempts"]

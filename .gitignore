@@ -24,3 +24,6 @@ __pycache__/
 
 # Local model / embedding caches
 .cache/
+
+# Semantic index — regenerable via `python -m ledgerlens.index`
+*.npz

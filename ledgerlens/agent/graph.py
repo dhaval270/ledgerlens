@@ -21,22 +21,37 @@ from __future__ import annotations
 
 from langgraph.graph import END, StateGraph
 
+from .nodes.anomaly_tool import anomaly_tool
 from .nodes.planner import MAX_REPLANS, planner
+from .nodes.semantic_tool import semantic_tool
 from .nodes.sql_tool import sql_tool
 from .nodes.verifier import verifier
 from .state import AgentState
 
 
 def route_after_planner(state: AgentState) -> str:
-    """Refusals skip the tools entirely; otherwise fan out by planned tool."""
-    if not state.get("answerable", True):
-        return "answer"
-    if not state.get("plan"):
+    """Refusals skip the tools entirely; otherwise dispatch by planned tool.
+
+    Semantic runs before SQL when both are planned: §6.5 has retrieval produce
+    transaction IDs that SQL then aggregates, so the order is a data dependency,
+    not a preference.
+    """
+    if not state.get("answerable", True) or not state.get("plan"):
         return "answer"
 
     tools = {step.get("tool") for step in state["plan"]}
-    # Only the SQL tool is implemented; semantic and anomaly are Week 3 (§11).
+    if "semantic" in tools:
+        return "semantic_tool"
     if "sql" in tools:
+        return "sql_tool"
+    if "anomaly" in tools:
+        return "anomaly_tool"
+    return "answer"
+
+
+def route_after_semantic(state: AgentState) -> str:
+    """Hand retrieved IDs to SQL when the plan needs a figure from them."""
+    if any(step.get("tool") == "sql" for step in state.get("plan", [])):
         return "sql_tool"
     return "answer"
 
@@ -105,6 +120,8 @@ def build_graph():
     graph = StateGraph(AgentState)
 
     graph.add_node("planner", planner)
+    graph.add_node("semantic_tool", semantic_tool)
+    graph.add_node("anomaly_tool", anomaly_tool)
     graph.add_node("sql_tool", sql_tool)
     graph.add_node("answer", draft_answer)
     graph.add_node("verifier", verifier)
@@ -112,8 +129,14 @@ def build_graph():
 
     graph.set_entry_point("planner")
     graph.add_conditional_edges("planner", route_after_planner,
+                                {"semantic_tool": "semantic_tool",
+                                 "sql_tool": "sql_tool",
+                                 "anomaly_tool": "anomaly_tool",
+                                 "answer": "answer"})
+    graph.add_conditional_edges("semantic_tool", route_after_semantic,
                                 {"sql_tool": "sql_tool", "answer": "answer"})
     graph.add_edge("sql_tool", "answer")
+    graph.add_edge("anomaly_tool", "answer")
     graph.add_edge("answer", "verifier")
     graph.add_conditional_edges("verifier", route_after_verifier,
                                 {"planner": "planner", "answer": "finalize"})

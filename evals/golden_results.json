@@ -1,11 +1,11 @@
 {
   "n": 46,
-  "execution_accuracy_pct": 56.52173913043478,
-  "sql_valid_first_attempt_pct": 78.26086956521739,
-  "sql_valid_final_pct": 78.26086956521739,
+  "execution_accuracy_pct": 80.43478260869566,
+  "sql_valid_first_attempt_pct": 100.0,
+  "sql_valid_final_pct": 100.0,
   "repaired": 0,
-  "median_latency_s": 6.643450498580933,
-  "p90_latency_s": 8.460945129394531,
+  "median_latency_s": 4.613244414329529,
+  "p90_latency_s": 5.582269906997681,
   "results": [
     {
       "id": "agg-01",
@@ -16,8 +16,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'groceries') AND substr(posted_date, 1, 7) = '2026-03'",
-      "seconds": 3.47495174407959
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'groceries' AND substr(t.posted_date,1,7) = '2026-03'",
+      "seconds": 1.5636489391326904
     },
     {
       "id": "agg-02",
@@ -28,8 +28,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND posted_date LIKE '2026-01%'",
-      "seconds": 0.428142786026001
+      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND substr(posted_date,1,7) = '2026-01'",
+      "seconds": 0.5775699615478516
     },
     {
       "id": "agg-03",
@@ -41,19 +41,19 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(id) FROM transactions",
-      "seconds": 0.28238916397094727
+      "seconds": 0.313784122467041
     },
     {
       "id": "agg-04",
       "question": "What was my single largest purchase?",
       "expected": -1450.0,
-      "got": -1450.0,
-      "correct": true,
+      "got": "GREENLINE APTS RENT 0828",
+      "correct": false,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT amount FROM transactions WHERE type = 'purchase' ORDER BY amount LIMIT 1",
-      "seconds": 0.3367347717285156
+      "sql": "SELECT raw_descriptor FROM transactions WHERE type = 'purchase' ORDER BY amount ASC LIMIT 1",
+      "seconds": 0.43143510818481445
     },
     {
       "id": "agg-05",
@@ -64,8 +64,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'coffee')",
-      "seconds": 0.4627358913421631
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'coffee' AND t.type = 'purchase'",
+      "seconds": 0.4217710494995117
     },
     {
       "id": "agg-06",
@@ -77,7 +77,7 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(*) FROM transactions AS t JOIN categories AS c ON t.category_id = c.id WHERE c.name = 'coffee' AND t.type = 'purchase'",
-      "seconds": 0.43239617347717285
+      "seconds": 0.4910762310028076
     },
     {
       "id": "agg-07",
@@ -88,8 +88,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT AVG(amount) FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'groceries')",
-      "seconds": 0.3222310543060303
+      "sql": "SELECT AVG(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'groceries' AND t.type = 'purchase'",
+      "seconds": 0.5099449157714844
     },
     {
       "id": "agg-08",
@@ -101,7 +101,7 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'income'",
-      "seconds": 0.28982019424438477
+      "seconds": 0.40618014335632324
     },
     {
       "id": "agg-09",
@@ -112,8 +112,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id = (SELECT id FROM categories WHERE name = 'fees')",
-      "seconds": 5.746733903884888
+      "sql": "SELECT SUM(amount) FROM transactions WHERE category_id = (SELECT id FROM categories WHERE name = 'fees') AND type = 'purchase'",
+      "seconds": 0.5160489082336426
     },
     {
       "id": "agg-10",
@@ -124,8 +124,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id = (SELECT id FROM categories WHERE name = 'rent')",
-      "seconds": 7.569528102874756
+      "sql": "SELECT SUM(amount) FROM transactions WHERE category_id = (SELECT id FROM categories WHERE name = 'rent') AND type = 'purchase'",
+      "seconds": 0.5668580532073975
     },
     {
       "id": "date-01",
@@ -136,8 +136,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND posted_date BETWEEN '2026-01-01' AND '2026-03-31'",
-      "seconds": 7.4581639766693115
+      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND posted_date >= '2026-01-01' AND posted_date <= '2026-03-31'",
+      "seconds": 0.36515116691589355
     },
     {
       "id": "date-02",
@@ -149,7 +149,7 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND posted_date >= '2026-05-01'",
-      "seconds": 7.556913137435913
+      "seconds": 0.5004880428314209
     },
     {
       "id": "date-03",
@@ -160,8 +160,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'dining') AND posted_date >= '2025-07-01'",
-      "seconds": 7.574054956436157
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'dining' AND substr(t.posted_date, 1, 7) >= '2025-07' AND t.type = 'purchase'",
+      "seconds": 0.5145583152770996
     },
     {
       "id": "date-04",
@@ -173,7 +173,7 @@
       "executed": true,
       "error": null,
       "sql": "SELECT MIN(posted_date) FROM transactions",
-      "seconds": 7.44488000869751
+      "seconds": 3.7873899936676025
     },
     {
       "id": "date-05",
@@ -185,7 +185,7 @@
       "executed": true,
       "error": null,
       "sql": "SELECT MAX(posted_date) FROM transactions",
-      "seconds": 7.856227874755859
+      "seconds": 4.70861291885376
     },
     {
       "id": "date-06",
@@ -196,8 +196,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'travel') AND substr(posted_date, 1, 7) = '2026-04'",
-      "seconds": 6.583067893981934
+      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'travel') AND substr(posted_date,1,7) = '2026-04'",
+      "seconds": 4.610795974731445
     },
     {
       "id": "date-07",
@@ -209,7 +209,7 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(DISTINCT substr(posted_date,1,7)) FROM transactions",
-      "seconds": 8.769938945770264
+      "seconds": 4.746302127838135
     },
     {
       "id": "date-08",
@@ -220,8 +220,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND posted_date LIKE '2025-12%'",
-      "seconds": 6.454921007156372
+      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND substr(posted_date,1,7) = '2025-12'",
+      "seconds": 5.528323173522949
     },
     {
       "id": "cmp-01",
@@ -232,8 +232,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT CASE WHEN SUM(CASE WHEN T.category_id = (SELECT id FROM categories WHERE name = 'groceries') THEN T.amount ELSE 0 END) < SUM(CASE WHEN T.category_id = (SELECT id FROM categories WHERE name = 'dining') THEN T.amount ELSE 0 END) THEN 'dining' WHEN SUM(CASE WHEN T.category_id = (SELECT id FROM categories WHERE name = 'groceries') THEN T.amount ELSE 0 END) > SUM(CASE WHEN T.category_id = (SELECT id FROM categories WHERE name = 'dining') THEN T.amount ELSE 0 END) THEN 'groceries' ELSE 'equal' END AS result FROM transactions T WHERE T.type = 'purchase'",
-      "seconds": 7.726299047470093
+      "sql": "SELECT CASE WHEN SUM(CASE WHEN c.name = 'groceries' THEN t.amount ELSE 0 END) < SUM(CASE WHEN c.name = 'dining' THEN t.amount ELSE 0 END) THEN 'dining' ELSE 'groceries' END FROM transactions t JOIN categories c ON t.category_id = c.id WHERE t.type = 'purchase'",
+      "seconds": 4.949043035507202
     },
     {
       "id": "cmp-02",
@@ -244,8 +244,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(CASE WHEN substr(posted_date, 1, 7) = '2026-04' THEN amount ELSE 0 END) - SUM(CASE WHEN substr(posted_date, 1, 7) = '2026-03' THEN amount ELSE 0 END) AS spending_diff FROM transactions WHERE type = 'purchase'",
-      "seconds": 8.460945129394531
+      "sql": "SELECT SUM(CASE WHEN substr(posted_date,1,7) = '2026-04' THEN amount ELSE 0 END) - SUM(CASE WHEN substr(posted_date,1,7) = '2026-03' THEN amount ELSE 0 END) AS diff FROM transactions WHERE type = 'purchase'",
+      "seconds": 4.822451829910278
     },
     {
       "id": "cmp-03",
@@ -256,20 +256,20 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT substr(posted_date,1,7) AS month FROM transactions WHERE type = 'purchase' GROUP BY substr(posted_date,1,7) ORDER BY SUM(amount) ASC LIMIT 1",
-      "seconds": 7.674006223678589
+      "sql": "SELECT substr(posted_date,1,7) AS month FROM transactions WHERE type = 'purchase' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1",
+      "seconds": 5.810690879821777
     },
     {
       "id": "cmp-04",
       "question": "Which category do I spend the most on?",
       "expected": "rent",
-      "got": 2,
-      "correct": false,
+      "got": "rent",
+      "correct": true,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT category_id FROM transactions WHERE type = 'purchase' GROUP BY category_id ORDER BY SUM(amount) ASC LIMIT 1",
-      "seconds": 7.5748231410980225
+      "sql": "SELECT c.name FROM categories c JOIN transactions t ON c.id = t.category_id WHERE t.type = 'purchase' GROUP BY c.name ORDER BY SUM(t.amount) ASC LIMIT 1",
+      "seconds": 4.9123828411102295
     },
     {
       "id": "cmp-05",
@@ -280,8 +280,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT merchants.canonical_name FROM transactions JOIN merchants ON transactions.merchant_id = merchants.id WHERE transactions.type = 'purchase' GROUP BY merchants.canonical_name ORDER BY SUM(transactions.amount) ASC LIMIT 1",
-      "seconds": 8.605050086975098
+      "sql": "SELECT M.canonical_name FROM merchants M JOIN transactions T ON M.id = T.merchant_id WHERE T.type = 'purchase' GROUP BY M.canonical_name ORDER BY SUM(T.amount) ASC LIMIT 1",
+      "seconds": 4.90730619430542
     },
     {
       "id": "cmp-06",
@@ -292,20 +292,20 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT merchants.canonical_name FROM transactions JOIN merchants ON transactions.merchant_id = merchants.id GROUP BY merchants.canonical_name ORDER BY COUNT(transactions.id) DESC LIMIT 1",
-      "seconds": 6.64473295211792
+      "sql": "SELECT M.canonical_name FROM merchants M JOIN transactions T ON M.id = T.merchant_id GROUP BY M.canonical_name ORDER BY COUNT(T.id) DESC LIMIT 1",
+      "seconds": 4.870843887329102
     },
     {
       "id": "cmp-07",
       "question": "Was my spending in the first six months higher than the last six?",
       "expected": "no",
-      "got": "yes",
-      "correct": false,
+      "got": "no",
+      "correct": true,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT CASE WHEN SUM(CASE WHEN posted_date < '2026-01-01' THEN amount ELSE 0 END) < SUM(CASE WHEN posted_date >= '2026-01-01' THEN amount ELSE 0 END) THEN 'no' ELSE 'yes' END AS result FROM transactions WHERE type = 'purchase'",
-      "seconds": 7.685400009155273
+      "sql": "SELECT CASE WHEN SUM(CASE WHEN substr(posted_date, 1, 7) < '2026-01' THEN amount ELSE 0 END) < SUM(CASE WHEN substr(posted_date, 1, 7) >= '2026-01' THEN amount ELSE 0 END) THEN 'yes' ELSE 'no' END FROM transactions WHERE type = 'purchase'",
+      "seconds": 5.191614151000977
     },
     {
       "id": "cmp-08",
@@ -316,8 +316,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(CASE WHEN T.category_id = (SELECT id FROM categories WHERE name = 'dining') THEN T.amount ELSE 0 END) - SUM(CASE WHEN T.category_id = (SELECT id FROM categories WHERE name = 'groceries') THEN T.amount ELSE 0 END) AS difference FROM transactions T WHERE T.type = 'purchase'",
-      "seconds": 8.702930212020874
+      "sql": "SELECT SUM(CASE WHEN c.name = 'dining' THEN t.amount ELSE 0 END) - SUM(CASE WHEN c.name = 'groceries' THEN t.amount ELSE 0 END) AS difference FROM transactions t JOIN categories c ON t.category_id = c.id WHERE t.type = 'purchase'",
+      "seconds": 4.739766597747803
     },
     {
       "id": "mer-01",
@@ -328,8 +328,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND merchant_id IN (SELECT id FROM merchants WHERE canonical_name = 'Amazon')",
-      "seconds": 6.553385972976685
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE m.canonical_name = 'Amazon' AND t.type = 'purchase'",
+      "seconds": 5.8133790493011475
     },
     {
       "id": "mer-02",
@@ -340,8 +340,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT COUNT(id) FROM transactions WHERE merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Target') AND type = 'purchase'",
-      "seconds": 8.91024112701416
+      "sql": "SELECT COUNT(id) FROM transactions WHERE merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Target')",
+      "seconds": 4.562342882156372
     },
     {
       "id": "mer-03",
@@ -352,20 +352,20 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) AS monthly_payment FROM transactions WHERE type = 'purchase' AND merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Netflix') AND posted_date LIKE '2026-07%'",
-      "seconds": 6.642168045043945
+      "sql": "SELECT AVG(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE m.canonical_name = 'Netflix' AND t.type = 'purchase'",
+      "seconds": 4.5618109703063965
     },
     {
       "id": "mer-04",
       "question": "How many distinct merchants have I bought from?",
-      "expected": 23,
+      "expected": 19,
       "got": 19,
-      "correct": false,
+      "correct": true,
       "attempts": 1,
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(DISTINCT merchant_id) FROM transactions WHERE type = 'purchase'",
-      "seconds": 7.591272830963135
+      "seconds": 4.482433080673218
     },
     {
       "id": "mer-05",
@@ -376,8 +376,8 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Whole Foods')",
-      "seconds": 7.885463714599609
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE m.canonical_name = 'Whole Foods' AND t.type = 'purchase'",
+      "seconds": 5.67123818397522
     },
     {
       "id": "mer-06",
@@ -388,176 +388,176 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND merchant_id IN (SELECT id FROM merchants WHERE canonical_name = 'Uber')",
-      "seconds": 7.561154127120972
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.type = 'purchase' AND m.canonical_name = 'Uber'",
+      "seconds": 4.45739221572876
     },
     {
       "id": "rec-01",
-      "question": "How many subscriptions do I have?",
+      "question": "How many recurring charges do I have?",
       "expected": 8,
-      "got": 3,
-      "correct": false,
+      "got": 8,
+      "correct": true,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT COUNT(DISTINCT t.merchant_id) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'subscriptions' AND t.type = 'purchase'",
-      "seconds": 7.798634052276611
+      "sql": "SELECT COUNT(id) FROM recurring_series WHERE active = 1",
+      "seconds": 4.368527889251709
     },
     {
       "id": "rec-02",
       "question": "Did any of my subscriptions go up in price?",
       "expected": "Spotify",
-      "got": 0,
+      "got": null,
       "correct": false,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT COUNT(*) FROM insights WHERE kind = 'price_hike' AND subject_id IN (SELECT id FROM categories WHERE name = 'subscriptions')",
-      "seconds": 6.863306999206543
+      "sql": "SELECT CASE WHEN typical_amount < last_amount THEN 'yes' ELSE 'no' END AS price_increase FROM recurring_series WHERE merchant_id IN (SELECT id FROM merchants WHERE default_category_id = (SELECT id FROM categories WHERE name = 'subscriptions')) AND active = 1 AND typical_amount < last_amount",
+      "seconds": 5.538244962692261
     },
     {
       "id": "rec-03",
       "question": "What is my most expensive recurring charge?",
       "expected": "Greenline",
-      "got": 2350.0,
+      "got": "ACME CORP",
       "correct": false,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT MAX(typical_amount) FROM recurring_series WHERE active = 1",
-      "seconds": 7.779534816741943
+      "sql": "SELECT merchants.canonical_name FROM merchants JOIN recurring_series ON merchants.id = recurring_series.merchant_id ORDER BY recurring_series.typical_amount DESC LIMIT 1",
+      "seconds": 4.488795042037964
     },
     {
       "id": "rec-04",
       "question": "How much do my subscriptions cost me per month in total?",
       "expected": -50.47,
-      "got": -609.24,
+      "got": -52.269999999999996,
       "correct": false,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(amount) AS total_monthly_subscriptions FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'subscriptions') AND posted_date BETWEEN '2025-08-01' AND '2026-07-31'",
-      "seconds": 7.683076858520508
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'subscriptions' AND type = 'purchase' AND substr(t.posted_date,1,7) = '2026-07'",
+      "seconds": 5.514716148376465
     },
     {
       "id": "rec-05",
       "question": "Is my travel spending unusual in any month?",
       "expected": "2026-04",
-      "got": null,
+      "got": "2025-08",
       "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99067, Requested 1713. Please try again in 11m13.92s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.1626880168914795
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT substr(posted_date,1,7) FROM transactions WHERE type = 'purchase' AND category_id = (SELECT id FROM categories WHERE name = 'travel') GROUP BY substr(posted_date,1,7) HAVING AVG(amount) < (SELECT AVG(amount) * 0.5 FROM transactions WHERE type = 'purchase' AND category_id = (SELECT id FROM categories WHERE name = 'travel'))",
+      "seconds": 4.615692853927612
     },
     {
       "id": "rec-06",
       "question": "When did I first shop at Peloton?",
       "expected": "2026-07-12",
-      "got": null,
-      "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99067, Requested 1688. Please try again in 10m52.32s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.17045998573303223
+      "got": "2026-07-12",
+      "correct": true,
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT MIN(posted_date) FROM transactions WHERE merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Peloton')",
+      "seconds": 5.725472927093506
     },
     {
       "id": "multi-01",
       "question": "What percentage of my spending was on essentials?",
       "expected": 53.5,
-      "got": null,
-      "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99067, Requested 1688. Please try again in 10m52.32s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.17326092720031738
+      "got": 53.52333095760368,
+      "correct": true,
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT CAST(SUM(CASE WHEN c.is_essential = 1 THEN t.amount ELSE 0 END) AS REAL) * 100 / SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE t.type = 'purchase'",
+      "seconds": 5.306850910186768
     },
     {
       "id": "multi-02",
       "question": "In my highest-spending month, which category dominated?",
       "expected": "travel",
-      "got": null,
-      "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99067, Requested 1715. Please try again in 11m15.648s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.1695878505706787
+      "got": "travel",
+      "correct": true,
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT T2.name FROM transactions AS T1 INNER JOIN categories AS T2 ON T1.category_id = T2.id WHERE substr(T1.posted_date, 1, 7) = (SELECT substr(posted_date, 1, 7) FROM transactions WHERE type = 'purchase' GROUP BY substr(posted_date, 1, 7) ORDER BY SUM(amount) ASC LIMIT 1) AND T1.type = 'purchase' GROUP BY T2.name ORDER BY SUM(T1.amount) ASC LIMIT 1",
+      "seconds": 4.007491111755371
     },
     {
       "id": "multi-03",
       "question": "What is my average monthly spending?",
       "expected": -4664.06,
-      "got": null,
+      "got": -71.38873724489795,
       "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99066, Requested 1777. Please try again in 12m8.352s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.16025185585021973
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT AVG(T1.amount) AS average_monthly_spending FROM transactions AS T1 WHERE T1.type = 'purchase' AND T1.posted_date >= '2025-08-01' AND T1.posted_date <= '2026-07-31'",
+      "seconds": 5.582269906997681
     },
     {
       "id": "multi-04",
       "question": "How much did I save, counting income minus spending?",
       "expected": 5119.53,
-      "got": null,
-      "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99066, Requested 1781. Please try again in 12m11.808s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.1643238067626953
+      "got": 5131.230000000003,
+      "correct": true,
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT SUM(CASE WHEN type = 'purchase' THEN amount ELSE 0 END) + SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS savings FROM transactions",
+      "seconds": 5.4993579387664795
     },
     {
       "id": "multi-05",
-      "question": "What share of my grocery spending went to Trader Joe's?",
+      "question": "What percentage of my grocery spending went to Trader Joe's?",
       "expected": 57.3,
-      "got": null,
-      "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99066, Requested 1716. Please try again in 11m15.648s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.1626911163330078
+      "got": 57.326625256587015,
+      "correct": true,
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT CAST(SUM(CASE WHEN t.merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Trader Joe') THEN t.amount ELSE 0 END) AS REAL) * 100 / SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'groceries' AND t.type = 'purchase'",
+      "seconds": 4.629658937454224
     },
     {
       "id": "sem-01",
       "question": "What did I spend on anything medical-looking?",
       "expected": -1874.81,
-      "got": null,
-      "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99066, Requested 1779. Please try again in 12m10.079999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.16374993324279785
+      "got": -1874.81,
+      "correct": true,
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'health'",
+      "seconds": 5.481814861297607
     },
     {
       "id": "sem-02",
       "question": "How much went on entertainment and going out?",
       "expected": -2020.16,
-      "got": null,
-      "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99066, Requested 1688. Please try again in 10m51.456s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.1639089584350586
+      "got": -2020.16,
+      "correct": true,
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name IN ('entertainment', 'dining') AND t.type = 'purchase'",
+      "seconds": 4.616364240646362
     },
     {
       "id": "sem-03",
       "question": "What did my trips cost me?",
       "expected": -7586.88,
-      "got": null,
-      "correct": false,
-      "attempts": 3,
-      "executed": false,
-      "error": "generation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jg3xth6kfxr9h8sn8x03j44b` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99066, Requested 1711. Please try again in 11m11.328s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
-      "sql": "",
-      "seconds": 0.1636049747467041
+      "got": -7586.88,
+      "correct": true,
+      "attempts": 1,
+      "executed": true,
+      "error": null,
+      "sql": "SELECT SUM(amount) FROM transactions WHERE category_id = (SELECT id FROM categories WHERE name = 'travel') AND type = 'purchase'",
+      "seconds": 4.505462884902954
     }
   ]
 }
