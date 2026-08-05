@@ -234,6 +234,38 @@ def _record_alias(
 
 # --- dispatch ----------------------------------------------------------------
 
+# On a peer-to-peer transfer the merchant is the person, not the rail. Resolving
+# "Zelle Payment To Manan Parikh Jpm99Cmxs17C" to `Zelle` collapses everyone you
+# have ever paid into one merchant, so "how much did I send to Manan?" cannot be
+# answered by a join and the counterparty survives only inside raw_descriptor.
+# Observed live: the model wrote `WHERE m.canonical_name = 'Dhaval Patel'`, which
+# is the right shape against a schema where payees are merchants — so make them
+# merchants rather than teach the model to grep a text column.
+_P2P = re.compile(
+    r"^(?:zelle|venmo|cash\s*app|paypal)\s+(?:payment\s+)?(?:from|to)\s+(.+)$",
+    re.IGNORECASE,
+)
+# Trailing confirmation codes: Jpm99Cmxs17C, Wfct129X5Tyy, 30099853170. A digit
+# is required so a genuine surname is never mistaken for a reference.
+_REFERENCE = re.compile(r"^(?=\S*\d)[A-Za-z0-9]{6,}$")
+
+
+def counterparty(raw_descriptor: str) -> str | None:
+    """The person on the other side of a P2P transfer, or None."""
+    match = _P2P.match(raw_descriptor.strip())
+    if not match:
+        return None
+    words = match.group(1).split()
+    # Always keep one token. Zelle recipients are sometimes a phone number
+    # rather than a name ("Zelle Payment To 1413409425 29488151212"), and
+    # stripping every digit-bearing token leaves nothing — which collapsed that
+    # payment back into a generic `Zelle` and lost the only identifier it had.
+    while len(words) > 1 and _REFERENCE.match(words[-1]):
+        words.pop()
+    name = " ".join(words).title()
+    return name or None
+
+
 def resolve(conn: sqlite3.Connection, raw_descriptor: str, use_llm: bool = True) -> Resolution:
     """Walk the tiers in order, writing back any LLM resolution."""
 
@@ -246,6 +278,15 @@ def resolve(conn: sqlite3.Connection, raw_descriptor: str, use_llm: bool = True)
     ).fetchone()
     if row:
         return Resolution(row[0], row[1], row[2], row[3], tier=1)
+
+    # tier 2a — peer-to-peer transfer: the counterparty is the merchant.
+    # Deterministic, so it runs before the generic stripping that would otherwise
+    # cluster every Zelle payment under one name.
+    person = counterparty(raw_descriptor)
+    if person:
+        merchant_id = _upsert_merchant(conn, person)
+        _record_alias(conn, raw_descriptor, merchant_id, "rule", 1.0)
+        return Resolution(merchant_id, person, "rule", 1.0, tier=2)
 
     # tier 2 — strip, then re-check aliases and known canonical names
     stripped = strip_noise(raw_descriptor)

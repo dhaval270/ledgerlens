@@ -19,3 +19,18 @@ class AgentState(TypedDict, total=False):
     # queries, and routing them anyway invites a tool to invent a number.
     answerable: bool
     refusal_reason: str
+
+    # Set by the answer node when no tool produced a row. The verifier passes
+    # such an answer trivially — it contains no figures, so nothing fails to
+    # trace — and "I couldn't answer that" would then be reported as verified.
+    # Technically true, and exactly the misleading pairing §6.7 exists to
+    # prevent, so the failure is carried explicitly rather than inferred from a
+    # verdict that was never about retrieval.
+    retrieval_failed: bool
+
+    # Set by the answer node when the tools ran fine and matched nothing. This
+    # is a third outcome, not a shade of the other two: "you have no income" is
+    # a correct answer, so it must not be flagged as a failure — but it verifies
+    # trivially (no figures, nothing to trace), so a green tick beside it claims
+    # a check that never happened. Both readings are wrong; it needs its own.
+    no_data: bool

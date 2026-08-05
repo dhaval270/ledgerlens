@@ -71,6 +71,7 @@ def test_total_tool_failure_is_reported_not_papered_over():
         "tool_results": [{"tool": "sql", "rows": [], "error": "OperationalError"}],
     })
     assert "couldn't answer" in out["draft_answer"]
+    assert out["retrieval_failed"] is True
 
 
 # --- finalize ----------------------------------------------------------------
@@ -93,6 +94,71 @@ def test_verified_answer_is_left_alone():
         "verifier_verdict": {"pass": True, "reason": "all figures trace"},
     })
     assert out["draft_answer"] == "You spent $412.55."
+
+
+def test_an_empty_result_is_neither_verified_nor_a_failure():
+    """`SUM(amount) WHERE type='income'` over a ledger with none returns one
+    NULL row. Observed live: rendered as "-> None" and badged verified."""
+    out = draft_answer({
+        "question": "How much money came in?",
+        "answerable": True,
+        "tool_results": [{"tool": "sql", "sub_question": "total income",
+                          "rows": [{"SUM(amount)": None}], "error": None}],
+    })
+    assert out["no_data"] is True
+    assert "None" not in out["draft_answer"]
+    assert "no matching transactions" in out["draft_answer"]
+
+    final = finalize(out | {"verifier_verdict": {"pass": True,
+                                                 "reason": "answer makes no numeric claims"}})
+    assert final["verifier_verdict"]["pass"] is False
+    assert final["verifier_verdict"]["no_data"] is True
+    # Correct answers do not get a caution prefix.
+    assert "couldn't verify" not in final["draft_answer"]
+
+
+def test_zero_rows_is_also_no_data():
+    out = draft_answer({
+        "question": "q", "answerable": True,
+        "tool_results": [{"tool": "sql", "rows": [], "error": None}],
+    })
+    assert out["no_data"] is True
+
+
+def test_a_real_value_is_not_no_data():
+    out = draft_answer({
+        "question": "q", "answerable": True,
+        "tool_results": [{"tool": "sql", "rows": [{"total": -412.55}], "error": None}],
+    })
+    assert out["no_data"] is False
+    assert "-412.55" in out["draft_answer"]
+
+
+def test_zero_is_a_value_not_an_absence():
+    """0.0 is falsy in Python and is a perfectly good answer."""
+    out = draft_answer({
+        "question": "q", "answerable": True,
+        "tool_results": [{"tool": "sql", "rows": [{"total": 0.0}], "error": None}],
+    })
+    assert out["no_data"] is False
+
+
+def test_a_retrieval_failure_is_never_reported_as_verified():
+    """The verifier passes it trivially — it contains no figures to trace.
+
+    Observed live: the SQL tool exhausted its attempts on a 429, the answer said
+    "I couldn't answer that", and the API returned verified=true beside it. True
+    in the letter, and precisely the pairing §6.7 exists to prevent.
+    """
+    out = finalize({
+        "answerable": True,
+        "retrieval_failed": True,
+        "draft_answer": "I couldn't answer that — the query failed after repeated attempts.",
+        "verifier_verdict": {"pass": True, "reason": "answer makes no numeric claims"},
+    })
+    assert out["verifier_verdict"]["pass"] is False
+    # The answer already says it failed; saying so twice reads as two problems.
+    assert "couldn't verify" not in out["draft_answer"]
 
 
 def test_refusal_is_not_labelled_unverified():

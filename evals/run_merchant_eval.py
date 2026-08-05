@@ -14,6 +14,7 @@ returns a fraction of its true total — so they get their own number.
 
 from __future__ import annotations
 
+import argparse
 import collections
 import csv
 import sys
@@ -32,7 +33,17 @@ LABELS = Path(__file__).parent / "labeled_categories.csv"
 SYNTHETIC = Path(__file__).parent.parent / "data" / "synthetic" / "transactions.csv"
 
 
-def build(reset: bool = True) -> dict:
+def build(reset: bool = True, ablate_rules: bool = False) -> dict:
+    """Ingest, resolve and categorize the whole synthetic ledger.
+
+    `ablate_rules` deletes the seeded regexes before categorizing, which is the
+    only honest way to read the headline accuracy. The 14 rules in seed.py were
+    written *knowing* this catalog, so scoring them against it measures how well
+    the rules were written, not how well the pipeline generalizes. Removing them
+    forces every merchant through the LLM tier and lets the learned write-back
+    propagate that decision — including its mistakes, which is exactly the
+    failure mode a new statement would hit.
+    """
     if reset:
         DB_PATH.unlink(missing_ok=True)
         init_db()
@@ -45,6 +56,9 @@ def build(reset: bool = True) -> dict:
     with connect() as conn:
         ingest_file(conn, SYNTHETIC)
         seed(conn)
+        if ablate_rules:
+            conn.execute("DELETE FROM category_rules")
+            conn.commit()
         rows = conn.execute(
             "SELECT id, raw_descriptor, type FROM transactions ORDER BY id"
         ).fetchall()
@@ -164,7 +178,14 @@ def score() -> dict:
 
 
 def main() -> int:
-    build_stats = build()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ablate-rules", action="store_true",
+                    help="drop the seeded regexes; measures the pipeline, not the rules")
+    args = ap.parse_args()
+
+    build_stats = build(ablate_rules=args.ablate_rules)
+    if args.ablate_rules:
+        print("!!! category_rules ablated — LLM tier carries categorization\n")
     print("--- §5.3 tier hit rate ---")
     for k in ("transactions", "tier1_alias", "tier2_rule", "tier3_llm"):
         print(f"  {k:16} {build_stats[k]}")

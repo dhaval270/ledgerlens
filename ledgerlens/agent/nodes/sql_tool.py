@@ -97,10 +97,15 @@ Data covers {date_min} to {date_max}. Today is {date_max}.
 Conventions that are always true:
 - `amount` is negative for outflow, positive for income and refunds.
 - Dates are ISO strings 'YYYY-MM-DD'. Use substr(posted_date,1,7) for a month.
-- Spending analytics filter `type = 'purchase'` unless the question is
-  explicitly about income, transfers, fees or refunds.
 - "How much did I spend" means SUM(amount), which will be negative.
 - Join merchants and categories by id; never match on free text unless asked.
+
+Transaction types in this ledger: {types}
+{spend_rule}
+
+When the question compares two periods, categories or merchants, GROUP BY that
+dimension and return one row per side. A single combined SUM over both does not
+answer a comparison — "June vs July" needs two rows, not one total.
 
 Values present in the data:
 - categories.name is one of: {categories}
@@ -127,6 +132,36 @@ Your previous attempt failed.
 SQL:   {sql}
 Error: {error}
 Fix it and return corrected SQL."""
+
+
+def _type_mix(conn: sqlite3.Connection) -> str:
+    rows = conn.execute(
+        "SELECT type, COUNT(*) FROM transactions GROUP BY type ORDER BY 2 DESC"
+    ).fetchall()
+    return ", ".join(f"{name} ({count})" for name, count in rows) or "none"
+
+
+def _spend_rule(conn: sqlite3.Connection) -> str:
+    """The purchase-filter guidance, decided by the data rather than assumed.
+
+    §4 has spending analytics filter `type = 'purchase'`, which is right for a
+    card statement and catastrophic for a checking account: asked "who did I pay
+    the most?", the model added `WHERE type = 'purchase'` to a ledger holding
+    only transfers and got nothing back. Valid SQL, real schema, empty answer.
+
+    Same reasoning as `compact_schema` dropping empty tables — a filter that can
+    only match zero rows should not be suggested, because the model has no way
+    to know it is a dead end and every attempt looks reasonable.
+    """
+    (purchases,) = conn.execute(
+        "SELECT COUNT(*) FROM transactions WHERE type = 'purchase'"
+    ).fetchone()
+    if purchases:
+        return ("- Spending analytics filter `type = 'purchase'` unless the question is\n"
+                "  explicitly about income, transfers, fees or refunds.")
+    return ("- There are NO `purchase` rows here, so never filter on that type — it can\n"
+            "  only return nothing. Money leaving the account is any negative `amount`,\n"
+            "  whatever its type.")
 
 
 def _date_bounds(conn: sqlite3.Connection) -> tuple[str, str]:
@@ -178,6 +213,7 @@ def generate_sql(question: str, repair: str = "",
     with connect_readonly() as conn:
         date_min, date_max = _date_bounds(conn)
         categories, merchants = _vocabulary(conn)
+        types, spend_rule = _type_mix(conn), _spend_rule(conn)
 
     scope = ""
     if transaction_ids:
@@ -193,6 +229,8 @@ def generate_sql(question: str, repair: str = "",
             date_max=date_max,
             categories=categories,
             merchants=merchants,
+            types=types,
+            spend_rule=spend_rule,
             repair=repair,
         )
     )
