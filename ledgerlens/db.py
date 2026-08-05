@@ -2,10 +2,28 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "ledger.db"
+from dotenv import load_dotenv
+
+# Read .env here, not only in llm.py: LEDGERLENS_DB belongs beside GROQ_API_KEY
+# as machine-local configuration, and depending on import order to have loaded
+# it elsewhere makes which database opens depend on which module imported first.
+load_dotenv()
+
+# `ledger.db` is the synthetic benchmark ledger: the golden set's expected
+# values are counts and sums over exactly those rows, so anything else landing
+# in it silently invalidates the answer key. Ingesting one real statement moved
+# a transaction count from 832 to 839 and broke the drift test, which is the
+# test working — the fix is separate files, not a re-baselined benchmark.
+#
+#     LEDGERLENS_DB=private.db uvicorn ledgerlens.api.main:app
+#
+# Unset, everything behaves exactly as before.
+DEFAULT_DB = Path(__file__).resolve().parent.parent / "ledger.db"
+DB_PATH = Path(os.getenv("LEDGERLENS_DB") or DEFAULT_DB)
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
 
@@ -29,9 +47,20 @@ def connect_readonly(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
 
 
 def init_db(db_path: Path | str = DB_PATH) -> None:
-    """Apply schema.sql to a fresh database."""
+    """Apply schema.sql to a fresh database, then seed its reference data.
+
+    Categories and category rules are reference data, not user data: without
+    them `categorize` has no vocabulary to choose from, the approval dropdowns
+    are empty, and every ingested row shows an uncategorized dash. A schema-only
+    database looks initialized and cannot classify anything, which is a worse
+    failure than an obvious one. `seed` is idempotent, so this stays safe to
+    call on an existing file.
+    """
+    from .seed import seed
+
     with connect(db_path) as conn:
         conn.executescript(SCHEMA_PATH.read_text())
+        seed(conn)
 
 
 def schema_ddl() -> str:

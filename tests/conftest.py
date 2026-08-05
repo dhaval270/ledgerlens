@@ -7,9 +7,20 @@ otherwise the suite passes locally and fails on a fresh checkout.
 
 from __future__ import annotations
 
-import pytest
+import os
+from pathlib import Path
 
-from ledgerlens.synthetic import OUT_DIR, write
+# Pin the suite to the synthetic benchmark ledger before anything imports
+# ledgerlens.db, which resolves LEDGERLENS_DB at import time. Without this, a
+# machine configured to open a personal ledger scores the golden set against
+# personal transactions — which is not a failing test, it is a meaningless
+# passing one. `load_dotenv` does not override an existing variable, so setting
+# it here wins over .env.
+os.environ["LEDGERLENS_DB"] = str(Path(__file__).resolve().parent.parent / "ledger.db")
+
+import pytest  # noqa: E402
+
+from ledgerlens.synthetic import OUT_DIR, write  # noqa: E402
 
 SYNTHETIC_CSV = OUT_DIR / "transactions.csv"
 

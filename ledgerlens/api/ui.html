@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LedgerLens</title>
+<style>
+  :root {
+    --bg: #fbfbfa; --panel: #fff; --ink: #1a1a19; --muted: #6b6b66;
+    --line: #e4e4e0; --accent: #3d5a80; --ok: #2f6f4f; --warn: #8a5a00;
+    --bad: #9b2c2c; --chip: #f0f0ed; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a; --panel: #1e1e23; --ink: #e8e8e6; --muted: #9a9a94;
+      --line: #32323a; --accent: #8ab0d8; --ok: #6fbf94; --warn: #d4a24c;
+      --bad: #e08a8a; --chip: #2a2a31;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
+  header .tag { color: var(--muted); font-size: 13px; }
+  header .spacer { flex: 1; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--muted); }
+  .dot.up { background: var(--ok); } .dot.down { background: var(--bad); }
+  nav { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  nav button {
+    background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
+    padding: 11px 14px; font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  main { max-width: 900px; margin: 0 auto; padding: 24px; }
+  section[hidden] { display: none; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  .card h3 { margin: 0 0 4px; font-size: 15px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
+  input, select, textarea, button {
+    font-family: inherit; font-size: 14px; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+  }
+  textarea { width: 100%; resize: vertical; min-height: 62px; }
+  button.go {
+    background: var(--accent); color: #fff; border-color: transparent;
+    cursor: pointer; font-weight: 500;
+  }
+  button.go:disabled { opacity: .5; cursor: default; }
+  button.mini { padding: 5px 10px; font-size: 13px; cursor: pointer; }
+  button.approve { border-color: var(--ok); color: var(--ok); }
+  button.reject { border-color: var(--bad); color: var(--bad); }
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px;
+    font-weight: 600; letter-spacing: .02em; background: var(--chip); color: var(--muted);
+  }
+  .badge.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+  .badge.bad { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+  .badge.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .answer { font-size: 16px; margin: 10px 0 6px; }
+  .why { color: var(--muted); font-size: 13px; }
+  details { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  pre {
+    font-family: var(--mono); font-size: 12.5px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 10px;
+    overflow-x: auto; margin: 8px 0 0;
+  }
+  .diff { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+  @media (max-width: 620px) { .diff { grid-template-columns: 1fr; } }
+  .diff div { border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; }
+  .diff .k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .money { font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 13px; }
+  .k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .mono { font-family: var(--mono); font-size: 13px; word-break: break-all; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.out { color: var(--bad); } td.in { color: var(--ok); }
+  td.desc { white-space: normal; min-width: 210px; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  tbody tr:hover { background: var(--chip); }
+  .empty { color: var(--muted); padding: 22px; text-align: center; }
+  .err { color: var(--bad); font-size: 13.5px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LedgerLens</h1>
+  <span class="tag">verified answers over your own statements</span>
+  <span class="spacer"></span>
+  <span class="note"><span id="dot" class="dot"></span> <span id="healthText">checking…</span></span>
+</header>
+
+<nav>
+  <button data-tab="ask" aria-selected="true">Ask</button>
+  <button data-tab="data" aria-selected="false">Data</button>
+  <button data-tab="digest" aria-selected="false">Digest</button>
+  <button data-tab="changes" aria-selected="false">Changes</button>
+  <button data-tab="upload" aria-selected="false">Upload</button>
+</nav>
+
+<main>
+
+  <!-- ── Ask ─────────────────────────────────────────────────────────────── -->
+  <section id="ask">
+    <div class="card">
+      <label for="q">Question</label>
+      <textarea id="q" placeholder="How much did I spend on groceries in March 2026?"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="go" id="askBtn">Ask</button>
+        <span class="note" id="askNote"></span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <span class="note">Try:</span>
+        <button class="mini sample">How much did I spend on groceries in March 2026?</button>
+        <button class="mini sample">What is my credit score?</button>
+      </div>
+    </div>
+    <div id="askOut"></div>
+  </section>
+
+  <!-- ── Data ────────────────────────────────────────────────────────────── -->
+  <section id="data" hidden>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div class="k">open database</div>
+          <b id="dbPath" class="mono">—</b>
+        </div>
+        <div style="text-align:right">
+          <div class="k">transactions</div>
+          <b id="dbCount">—</b> <span class="note" id="dbRange"></span>
+        </div>
+      </div>
+      <div id="dbTypes" class="row" style="margin-top:12px"></div>
+      <div style="margin-top:12px">
+        <div class="k">source files</div>
+        <div id="dbSources" class="note" style="margin-top:4px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div style="flex:1;min-width:180px">
+          <label for="txQ">Search descriptor or merchant</label>
+          <input id="txQ" placeholder="zelle, chipotle, …" style="width:100%">
+        </div>
+        <div>
+          <label for="txType">Type</label>
+          <select id="txType"><option value="">all</option></select>
+        </div>
+        <div>
+          <label for="txSource">Source file</label>
+          <select id="txSource"><option value="">all</option></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <span class="note" id="txSummary"></span>
+        <span style="flex:1"></span>
+        <button class="mini" id="txPrev">‹ Prev</button>
+        <button class="mini" id="txNext">Next ›</button>
+      </div>
+    </div>
+
+    <div id="txTable"></div>
+    <div id="catTable"></div>
+  </section>
+
+  <!-- ── Digest ──────────────────────────────────────────────────────────── -->
+  <section id="digest" hidden>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="period">Month</label>
+          <select id="period"></select>
+        </div>
+        <div>
+          <label for="narrate">Summary</label>
+          <select id="narrate">
+            <option value="false">Findings only (no LLM call)</option>
+            <option value="true">Write a summary (calls the model)</option>
+          </select>
+        </div>
+        <div style="align-self:flex-end"><button class="go" id="digestBtn">Run detectors</button></div>
+      </div>
+      <p class="note" style="margin:10px 0 0">
+        Detectors are deterministic and idempotent — re-running a month re-checks it
+        without duplicating what it already found.
+      </p>
+    </div>
+    <div id="digestOut"></div>
+  </section>
+
+  <!-- ── Changes ─────────────────────────────────────────────────────────── -->
+  <section id="changes" hidden>
+    <div class="card">
+      <h3>Propose a change</h3>
+      <p class="note">Nothing is written until you approve the diff.</p>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label for="merchant">Recategorize merchant</label>
+          <select id="merchant"></select>
+        </div>
+        <div>
+          <label for="newCat">to</label>
+          <select id="newCat"></select>
+        </div>
+        <div style="align-self:flex-end"><button class="mini" id="recatBtn">Propose</button></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label for="budgetCat">Monthly budget for</label>
+          <select id="budgetCat"></select>
+        </div>
+        <div>
+          <label for="budgetAmt">limit</label>
+          <input id="budgetAmt" type="number" min="1" step="10" value="300" style="width:110px">
+        </div>
+        <div style="align-self:flex-end"><button class="mini" id="budgetBtn">Propose</button></div>
+      </div>
+      <div id="proposeErr" class="err" style="margin-top:10px"></div>
+    </div>
+    <h3 style="font-size:14px;color:var(--muted);margin:18px 0 10px">Pending approvals</h3>
+    <div id="pending"><div class="empty">Nothing pending.</div></div>
+  </section>
+
+  <!-- ── Upload ──────────────────────────────────────────────────────────── -->
+  <section id="upload" hidden>
+    <div class="card">
+      <h3>Upload a statement</h3>
+      <p class="note">
+        Re-uploading the same file is a safe no-op — rows are content-hashed, so a
+        statement that overlaps one already ingested adds only what is new.
+      </p>
+      <div class="row" style="margin-top:12px">
+        <input type="file" id="file" accept=".csv,.pdf">
+        <button class="go" id="uploadBtn">Ingest</button>
+      </div>
+      <div id="uploadOut" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const money = v => (v === null || v === undefined || v === '') ? '—'
+  : '$' + Math.abs(Number(v)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  const text = await res.text();
+  let body; try { body = JSON.parse(text); } catch { body = text; }
+  if (!res.ok) throw new Error(body?.detail ?? text ?? ('HTTP ' + res.status));
+  return body;
+}
+
+/* ── tabs ─────────────────────────────────────────────────────────────── */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x =>
+    x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('main section').forEach(s =>
+    s.hidden = s.id !== b.dataset.tab);
+  // Loaded on open rather than at boot: 832 rows is not worth fetching for
+  // someone who only wanted to ask a question.
+  if (b.dataset.tab === 'data') refreshData();
+});
+
+/* ── health + metadata ────────────────────────────────────────────────── */
+(async function boot() {
+  try {
+    const h = await api('/health');
+    $('#dot').className = 'dot ' + (h.db ? 'up' : 'down');
+    $('#healthText').textContent = h.db ? 'ledger loaded' : 'no ledger yet';
+    if (!h.db) return;
+  } catch {
+    $('#dot').className = 'dot down';
+    $('#healthText').textContent = 'server unreachable';
+    return;
+  }
+  try {
+    const m = await api('/meta');
+    $('#period').innerHTML = m.periods.map(p => `<option>${esc(p)}</option>`).join('');
+    const cats = m.categories.map(c => `<option>${esc(c)}</option>`).join('');
+    $('#newCat').innerHTML = cats;
+    $('#budgetCat').innerHTML = cats;
+    $('#merchant').innerHTML = m.merchants
+      .filter(x => x.transactions > 0)
+      .map(x => `<option value="${x.id}">${esc(x.name)} — ${esc(x.category ?? 'uncategorized')} (${x.transactions})</option>`)
+      .join('');
+  } catch (e) { console.warn('meta unavailable', e); }
+})();
+
+/* ── ask ──────────────────────────────────────────────────────────────── */
+document.querySelectorAll('.sample').forEach(b => b.onclick = () => {
+  $('#q').value = b.textContent; askNow();
+});
+$('#askBtn').onclick = askNow;
+$('#q').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) askNow();
+});
+
+async function askNow() {
+  const question = $('#q').value.trim();
+  if (!question) return;
+  $('#askBtn').disabled = true;
+  $('#askNote').textContent = 'planning, querying, verifying…';
+  $('#askOut').innerHTML = '';
+  const started = performance.now();
+  try {
+    const r = await api('/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    $('#askOut').innerHTML = renderAnswer(r, (performance.now() - started) / 1000);
+  } catch (e) {
+    $('#askOut').innerHTML = `<div class="card"><div class="err">${esc(e.message)}</div></div>`;
+  } finally {
+    $('#askBtn').disabled = false;
+    $('#askNote').textContent = '';
+  }
+}
+
+function renderAnswer(r, seconds) {
+  // The verdict is shown next to every answer, never filtered on: §6.7 treats an
+  // unverified answer as something to surface honestly rather than to hide.
+  //
+  // Four states, not two. "No data" is neither a pass nor a failure: the query
+  // ran and matched nothing, so a green tick would claim a check that never
+  // happened and a red flag would call a correct answer wrong. It is checked
+  // before `verified` because an empty result also has nothing to verify.
+  let badge = `<span class="badge ok">verified</span>`;
+  if (!r.answerable) badge = `<span class="badge warn">refused</span>`;
+  else if (r.no_data) badge = `<span class="badge">no data</span>`;
+  else if (!r.verified) badge = `<span class="badge bad">unverified</span>`;
+
+  // Errors show even when the query is empty — a tool that failed before
+  // producing SQL is exactly the case where the reader most needs the reason.
+  const sql = (r.tool_results ?? []).filter(t => t.query || t.error).map(t =>
+    (t.query ? `<pre>${esc(t.query)}</pre>` : '') +
+    (t.error ? `<div class="err">${esc(t.error)}</div>` : '')).join('');
+  const rows = (r.tool_results ?? []).flatMap(t => t.rows ?? []);
+
+  return `<div class="card">
+    <div class="row">${badge}<span class="note">${seconds.toFixed(1)}s</span></div>
+    <div class="answer">${esc(r.answer)}</div>
+    <div class="why">${esc(r.verdict?.reason ?? '')}</div>
+    ${sql ? `<details open><summary>SQL the model wrote</summary>${sql}</details>` : ''}
+    ${rows.length ? `<details><summary>${rows.length} row(s) returned</summary>
+      <pre>${esc(JSON.stringify(rows.slice(0, 20), null, 1))}</pre></details>` : ''}
+    ${r.plan?.length ? `<details><summary>Plan (${r.plan.length} step)</summary>
+      <pre>${esc(JSON.stringify(r.plan, null, 1))}</pre></details>` : ''}
+  </div>`;
+}
+
+/* ── data ─────────────────────────────────────────────────────────────── */
+let txOffset = 0;
+const TX_PAGE = 50;
+
+async function loadStats() {
+  try {
+    const s = await api('/stats');
+    $('#dbPath').textContent = s.db;
+    $('#dbCount').textContent = s.transactions.toLocaleString();
+    $('#dbRange').textContent = s.first_date ? `${s.first_date} → ${s.last_date}` : '';
+    $('#dbTypes').innerHTML = Object.entries(s.by_type)
+      .map(([t, n]) => `<span class="badge">${esc(t)} ${n}</span>`).join(' ');
+    $('#dbSources').innerHTML = Object.entries(s.by_source)
+      .map(([f, n]) => `${esc(f)} <b>${n}</b>`).join(' · ') || 'none';
+
+    const keep = $('#txSource').value;
+    $('#txSource').innerHTML = `<option value="">all</option>` +
+      Object.keys(s.by_source).map(f => `<option${f === keep ? ' selected' : ''}>${esc(f)}</option>`).join('');
+    const keepType = $('#txType').value;
+    $('#txType').innerHTML = `<option value="">all</option>` +
+      Object.keys(s.by_type).map(t => `<option${t === keepType ? ' selected' : ''}>${esc(t)}</option>`).join('');
+
+    $('#catTable').innerHTML = s.by_category.length ? `<div class="card">
+      <h3>Spend by category</h3>
+      <p class="note">Purchases only — §4 has every analytic filter on type='purchase',
+         so transfers and income are deliberately absent.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Category</th><th class="num">Transactions</th><th class="num">Total</th></tr></thead>
+        <tbody>${s.by_category.map(c => `<tr>
+          <td>${esc(c.category)}</td><td class="num">${c.n}</td>
+          <td class="num out">${money(c.total)}</td></tr>`).join('')}</tbody>
+      </table></div></div>` : '';
+  } catch (e) {
+    $('#dbPath').textContent = e.message;
+  }
+}
+
+async function loadTransactions() {
+  const params = new URLSearchParams({
+    limit: TX_PAGE, offset: txOffset,
+    q: $('#txQ').value.trim(), type: $('#txType').value, source: $('#txSource').value,
+  });
+  $('#txTable').innerHTML = `<div class="empty">loading…</div>`;
+  try {
+    const d = await api('/transactions?' + params);
+    const shown = d.rows.length ? `${d.offset + 1}–${d.offset + d.rows.length}` : '0';
+    $('#txSummary').textContent =
+      `${shown} of ${d.total.toLocaleString()} matching · net ${money(d.sum)}` +
+      (d.sum < 0 ? ' out' : d.sum > 0 ? ' in' : '');
+    $('#txPrev').disabled = d.offset === 0;
+    $('#txNext').disabled = d.offset + d.rows.length >= d.total;
+
+    $('#txTable').innerHTML = d.rows.length ? `<div class="card scroll"><table>
+      <thead><tr><th>Date</th><th class="num">Amount</th><th>Type</th>
+        <th>Merchant</th><th>Category</th><th>Raw descriptor</th></tr></thead>
+      <tbody>${d.rows.map(r => `<tr>
+        <td>${esc(r.posted_date)}</td>
+        <td class="num ${r.amount < 0 ? 'out' : 'in'}">${money(r.amount)}</td>
+        <td>${esc(r.type)}</td>
+        <td>${esc(r.merchant ?? '—')}</td>
+        <td>${esc(r.category ?? '—')}${r.categorized_by
+              ? ` <span class="note">(${esc(r.categorized_by)})</span>` : ''}</td>
+        <td class="desc">${esc(r.raw_descriptor)}</td></tr>`).join('')}</tbody>
+    </table></div>` : `<div class="empty">No transactions match.</div>`;
+  } catch (e) {
+    $('#txTable').innerHTML = `<div class="card"><div class="err">${esc(e.message)}</div></div>`;
+  }
+}
+
+function refreshData() { txOffset = 0; loadStats(); loadTransactions(); }
+
+$('#txQ').addEventListener('input', debounce(() => { txOffset = 0; loadTransactions(); }, 250));
+$('#txType').onchange = () => { txOffset = 0; loadTransactions(); };
+$('#txSource').onchange = () => { txOffset = 0; loadTransactions(); };
+$('#txPrev').onclick = () => { txOffset = Math.max(0, txOffset - TX_PAGE); loadTransactions(); };
+$('#txNext').onclick = () => { txOffset += TX_PAGE; loadTransactions(); };
+
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+}
+
+/* ── digest ───────────────────────────────────────────────────────────── */
+$('#digestBtn').onclick = runDigest;
+
+async function runDigest() {
+  const period = $('#period').value;
+  const narrate = $('#narrate').value;
+  $('#digestBtn').disabled = true;
+  $('#digestOut').innerHTML = `<div class="empty">running detectors…</div>`;
+  try {
+    const d = await api(`/digest/${period}?narrate=${narrate}`);
+    $('#digestOut').innerHTML = renderDigest(d);
+    document.querySelectorAll('[data-dismiss]').forEach(b =>
+      b.onclick = () => propose('dismiss_insight', { insight_id: Number(b.dataset.dismiss) }));
+  } catch (e) {
+    $('#digestOut').innerHTML = `<div class="card"><div class="err">${esc(e.message)}</div></div>`;
+  } finally { $('#digestBtn').disabled = false; }
+}
+
+const FINDING = {
+  price_hike: f => `<b>${esc(f.merchant)}</b> went from <span class="money">${money(f.typical_amount)}</span>
+      to <span class="money">${money(f.last_amount)}</span> — ${((f.ratio - 1) * 100).toFixed(1)}% more,
+      last charged ${esc(f.last_seen)}.`,
+  duplicate_charge: f => `<b>${esc(f.merchant)}</b> charged <span class="money">${money(f.amount)}</span>
+      twice, on ${esc((f.dates ?? []).join(' and '))}.`,
+  category_overspend: f => `<b>${esc(f.category)}</b> spent <span class="money">${money(f.spent)}</span>
+      against a <span class="money">${money(f.limit)}</span> budget —
+      <span class="money">${money(f.over_by)}</span> over.`,
+  baseline_anomaly: f => `<b>${esc(f.category)}</b> was <span class="money">${money(f.observed)}</span>,
+      ${esc(f.direction)} a ${f.baseline_months}-month baseline of
+      <span class="money">${money(f.baseline_mean)}</span>
+      <span class="note">(${esc(f.method)}${f.z_score !== null ? `, z=${f.z_score}` : ''})</span>.`,
+  new_merchant: f => `<b>${esc(f.merchant)}</b> appeared for the first time on ${esc(f.first_seen)}.`,
+  dormant_subscription: f => `<b>${esc(f.merchant)}</b> still bills
+      <span class="money">${money(f.monthly_amount)}</span> a month — ${esc(f.note)}.`,
+};
+
+function renderDigest(d) {
+  if (!d.count) return `<div class="empty">Nothing notable in ${esc(d.period)}.</div>`;
+  const summary = d.summary && !d.summary.startsWith('Nothing notable')
+    ? `<div class="card"><h3>Summary</h3><div class="answer">${esc(d.summary)}</div>
+       <p class="note">Written from the findings below — the model never sees a transaction.</p></div>`
+    : '';
+  const cards = d.findings.map(f => `
+    <div class="card">
+      <div class="row">
+        <span class="badge">${esc(f.kind.replace(/_/g, ' '))}</span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="mini" data-dismiss="${f.id}">Dismiss…</button>
+      </div>
+      <div style="margin-top:8px">${(FINDING[f.kind] ?? (x => esc(JSON.stringify(x))))(f)}</div>
+    </div>`).join('');
+  return summary + cards;
+}
+
+/* ── approvals ────────────────────────────────────────────────────────── */
+const pending = [];
+
+$('#recatBtn').onclick = () => propose('recategorize', {
+  merchant_id: Number($('#merchant').value), category: $('#newCat').value });
+$('#budgetBtn').onclick = () => propose('set_budget', {
+  category: $('#budgetCat').value, limit_amount: Number($('#budgetAmt').value) });
+
+async function propose(action, params) {
+  $('#proposeErr').textContent = '';
+  try {
+    const h = await api('/approvals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, params })
+    });
+    pending.push(h);
+    renderPending();
+    document.querySelector('nav button[data-tab="changes"]').click();
+  } catch (e) {
+    $('#proposeErr').textContent = e.message;
+    document.querySelector('nav button[data-tab="changes"]').click();
+  }
+}
+
+function renderPending() {
+  const box = $('#pending');
+  if (!pending.length) { box.innerHTML = `<div class="empty">Nothing pending.</div>`; return; }
+  box.innerHTML = pending.map((h, i) => `
+    <div class="card">
+      <div class="row">
+        <span class="badge warn">pending</span>
+        <b>${esc(h.proposal.summary)}</b>
+      </div>
+      <div class="diff">
+        <div><div class="k">before</div><pre>${esc(JSON.stringify(h.proposal.before, null, 1))}</pre></div>
+        <div><div class="k">after</div><pre>${esc(JSON.stringify(h.proposal.after, null, 1))}</pre></div>
+      </div>
+      <p class="note">${h.proposal.affected_rows} transaction(s) affected. Nothing has been written.</p>
+      <div class="row">
+        <button class="mini approve" data-i="${i}" data-ok="1">Approve</button>
+        <button class="mini reject" data-i="${i}" data-ok="0">Reject</button>
+      </div>
+      <div class="err" data-err="${i}"></div>
+    </div>`).join('');
+  box.querySelectorAll('[data-ok]').forEach(b => b.onclick = () => decide(
+    Number(b.dataset.i), b.dataset.ok === '1', b));
+}
+
+async function decide(index, approved, button) {
+  const handle = pending[index];
+  button.parentElement.querySelectorAll('button').forEach(b => b.disabled = true);
+  try {
+    const out = await api(`/approvals/${handle.thread_id}/decide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approved, note: '' })
+    });
+    pending.splice(index, 1);
+    renderPending();
+    const done = document.createElement('div');
+    done.className = 'card';
+    done.innerHTML = `<div class="row">
+        <span class="badge ${out.status === 'applied' ? 'ok' : ''}">${esc(out.status)}</span>
+        <b>${esc(handle.proposal.summary)}</b></div>
+      ${out.result ? `<pre>${esc(JSON.stringify(out.result, null, 1))}</pre>`
+                   : `<p class="note">Nothing changed.</p>`}`;
+    $('#pending').prepend(done);
+  } catch (e) {
+    // A 409 means the ledger moved after the diff was shown. The proposal is
+    // dead on purpose — re-propose and look at the current numbers.
+    document.querySelector(`[data-err="${index}"]`).textContent = e.message;
+    button.parentElement.querySelectorAll('button').forEach(b => b.disabled = false);
+  }
+}
+
+/* ── upload ───────────────────────────────────────────────────────────── */
+$('#uploadBtn').onclick = async () => {
+  const file = $('#file').files[0];
+  if (!file) { $('#uploadOut').innerHTML = `<div class="note">Choose a file first.</div>`; return; }
+  const form = new FormData();
+  form.append('file', file);
+  $('#uploadBtn').disabled = true;
+  $('#uploadOut').innerHTML = `<div class="note">ingesting…</div>`;
+  try {
+    const r = await api('/ingest', { method: 'POST', body: form });
+    $('#uploadOut').innerHTML = `
+      <div class="row">
+        <span class="badge ${r.inserted ? 'ok' : ''}">${r.inserted} inserted</span>
+        ${r.duplicates ? `<span class="badge">${r.duplicates} already present</span>` : ''}
+        <span class="note">parsed by the <b>${esc(r.adapter)}</b> adapter</span>
+      </div>
+      ${r.duplicates && !r.inserted
+        ? `<p class="note">Every row was already in this ledger — re-ingesting is a no-op.</p>` : ''}
+      <p class="note">Showing them in Data, filtered to this file.</p>`;
+    // The complaint this answers: an upload used to report a count and nothing
+    // else, leaving no way to see what actually landed.
+    await loadStats();
+    $('#txSource').value = r.source_file;
+    $('#txQ').value = ''; $('#txType').value = '';
+    txOffset = 0;
+    document.querySelector('nav button[data-tab="data"]').click();
+  } catch (e) {
+    $('#uploadOut').innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally { $('#uploadBtn').disabled = false; }
+};
+</script>
+</body>
+</html>

@@ -66,10 +66,24 @@ def route_after_verifier(state: AgentState) -> str:
     return "answer"
 
 
-def _format_rows(result: dict) -> str:
+def _is_empty(result: dict) -> bool:
+    """No rows, or rows whose every cell is NULL.
+
+    `SELECT SUM(amount) WHERE type='income'` over a ledger with no income
+    returns one row containing NULL. That is a successful query that found
+    nothing, not a value — rendering it as "None" invited reading a missing
+    answer as an answer.
+    """
     rows = result.get("rows") or []
     if not rows:
-        return "no rows"
+        return True
+    return all(value is None for row in rows for value in row.values())
+
+
+def _format_rows(result: dict) -> str:
+    if _is_empty(result):
+        return "no matching transactions"
+    rows = result["rows"]
     if len(rows) == 1 and len(rows[0]) == 1:
         return str(next(iter(rows[0].values())))
     return "; ".join(", ".join(f"{k}={v}" for k, v in row.items()) for row in rows[:5])
@@ -88,24 +102,46 @@ def draft_answer(state: AgentState) -> AgentState:
 
     results = state.get("tool_results") or []
     if not results:
-        return {**state, "draft_answer": "I couldn't retrieve anything for that question."}
+        return {**state, "retrieval_failed": True,
+                "draft_answer": "I couldn't retrieve anything for that question."}
 
     errored = [r for r in results if r.get("error")]
     if errored and not any(r.get("rows") for r in results):
-        return {**state, "draft_answer":
+        return {**state, "retrieval_failed": True, "draft_answer":
                 "I couldn't answer that — the query failed after repeated attempts."}
 
     parts = [
         f"{r.get('sub_question') or state['question']} -> {_format_rows(r)}"
         for r in results
     ]
-    return {**state, "draft_answer": " | ".join(parts)}
+    return {
+        **state,
+        "draft_answer": " | ".join(parts),
+        "no_data": all(_is_empty(r) for r in results),
+    }
 
 
 def finalize(state: AgentState) -> AgentState:
     """Attach the verdict to the answer. An unverified figure is never presented bare."""
     verdict = state.get("verifier_verdict") or {}
     answer = state.get("draft_answer", "")
+
+    # A retrieval failure is not a passed verification. The answer already says
+    # it failed, so it is not re-prefixed — only the verdict is corrected, so
+    # callers reading `verified` are not told a failure was checked and cleared.
+    if state.get("retrieval_failed"):
+        return {**state, "verifier_verdict": {
+            "pass": False, "reason": "no tool result to verify against",
+            "checked": 0, "unsupported": [],
+        }}
+
+    # An empty result is honest, so it gets no caution prefix — but it is not a
+    # verified figure either, so `pass` stays false and `no_data` says why.
+    if state.get("no_data"):
+        return {**state, "verifier_verdict": {
+            "pass": False, "no_data": True, "checked": 0, "unsupported": [],
+            "reason": "the query ran and matched no rows — nothing to verify",
+        }}
 
     if state.get("answerable", True) and verdict and not verdict.get("pass"):
         answer = (
@@ -158,6 +194,7 @@ def ask(question: str) -> dict:
     return {
         "answer": final.get("draft_answer", ""),
         "verified": bool(verdict.get("pass")),
+        "no_data": bool(final.get("no_data")),
         "verdict": verdict,
         "plan": final.get("plan", []),
         "tool_results": final.get("tool_results", []),

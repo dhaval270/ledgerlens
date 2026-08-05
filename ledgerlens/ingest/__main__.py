@@ -58,40 +58,17 @@ def main() -> int:
 
 
 def _resolve_all(conn) -> None:
-    """Merchant + category resolution, then recurring detection.
+    """Thin CLI wrapper. The work lives in ingest.resolve_pending so the API
+    upload path cannot drift from the command-line one."""
+    from . import resolve_pending
+    from .recurring import price_hikes
 
-    Ordering is not optional: recurring detection groups by merchant_id, so it
-    has nothing to group on until resolution has run.
-    """
-    from ..seed import seed
-    from .categorize import categorize
-    from .merchants import resolve
-    from .recurring import detect_series, price_hikes
-
-    seed(conn)
-    rows = conn.execute(
-        "SELECT id, raw_descriptor, type FROM transactions WHERE merchant_id IS NULL"
-    ).fetchall()
-
-    llm_calls = 0
-    for tid, descriptor, txn_type in rows:
-        m = resolve(conn, descriptor)
-        c = categorize(conn, descriptor, m.merchant_id, txn_type)
-        llm_calls += (m.tier == 3) + (c.tier == 4)
-        conn.execute(
-            """UPDATE transactions
-               SET merchant_id = ?, category_id = ?, categorized_by = ?, confidence = ?
-               WHERE id = ?""",
-            (m.merchant_id, c.category_id, c.categorized_by, c.confidence, tid),
-        )
-    conn.commit()
-
-    print(f"  resolved {len(rows)} transactions ({llm_calls} LLM calls)")
-
-    series = detect_series(conn)
-    hikes = price_hikes(conn)
-    print(f"  detected {series} recurring series, {len(hikes)} price hike(s)")
-    for h in hikes:
+    stats = resolve_pending(conn)
+    print(f"  resolved {stats['resolved']} transactions "
+          f"({stats['llm_calls']} LLM calls)")
+    print(f"  detected {stats['recurring_series']} recurring series, "
+          f"{stats['price_hikes']} price hike(s)")
+    for h in price_hikes(conn):
         print(f"    {h['merchant']}: {h['typical_amount']:.2f} -> "
               f"{h['last_amount']:.2f} ({h['ratio']:.1%} of typical)")
 

@@ -6,6 +6,8 @@ Reports:
   SQL validity (final)     % that executed after repair
   repair lift              what the repair loop actually bought
   latency                  median and p90 per question
+  tokens                   in/out per question, and cost at the published rate
+  refusal accuracy         % of unanswerable questions correctly refused
 
 Comparison is value-based, not SQL-based: any query reaching the right number
 counts. Numeric answers use a tolerance because §6.7 allows rounding — a model
@@ -25,12 +27,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # evals/ is not a package
 
+from langchain_core.callbacks import get_usage_metadata_callback
+
 from ledgerlens.agent.nodes.sql_tool import run_query
 
 GOLDEN = Path(__file__).parent / "golden_queries.jsonl"
 
 ABS_TOLERANCE = 0.02      # cents
 REL_TOLERANCE = 0.005     # 0.5%, covers rounding of percentages
+
+# Token counts below are measured; the dollar figure is derived from Groq's
+# published rate for llama-3.3-70b-versatile at the time of writing. Kept as a
+# constant so the cost line can be corrected without re-running the benchmark.
+USD_PER_MTOK_IN = 0.59
+USD_PER_MTOK_OUT = 0.79
 
 
 def _scalar(rows: list[dict]):
@@ -82,7 +92,11 @@ def run(limit: int | None = None) -> dict:
     results = []
     for entry in answerable:
         started = time.time()
-        outcome = run_query(entry["question"])
+        # Tokens are read off the callback rather than estimated: the prompt
+        # carries a live schema and vocabulary, so its size is not knowable
+        # from the source.
+        with get_usage_metadata_callback() as usage:
+            outcome = run_query(entry["question"])
         elapsed = time.time() - started
 
         got = _scalar(outcome["rows"])
@@ -99,6 +113,7 @@ def run(limit: int | None = None) -> dict:
             "error": outcome["error"],
             "sql": outcome["query"],
             "seconds": elapsed,
+            **_tokens(usage.usage_metadata),
         })
         print(("  PASS " if ok else "  FAIL ") + f"{entry['id']:11} "
               f"expected={entry['expected_value']!r} got={got!r} "
@@ -108,6 +123,8 @@ def run(limit: int | None = None) -> dict:
     executed = [r for r in results if r["executed"]]
     first_try = [r for r in results if r["executed"] and r["attempts"] == 1]
     latencies = [r["seconds"] for r in results]
+    tokens_in = [r["tokens_in"] for r in results]
+    tokens_out = [r["tokens_out"] for r in results]
 
     return {
         "n": n,
@@ -117,6 +134,58 @@ def run(limit: int | None = None) -> dict:
         "repaired": len(executed) - len(first_try),
         "median_latency_s": st.median(latencies),
         "p90_latency_s": sorted(latencies)[int(n * 0.9)] if n > 1 else latencies[0],
+        "median_tokens_in": st.median(tokens_in),
+        "median_tokens_out": st.median(tokens_out),
+        "total_tokens": sum(tokens_in) + sum(tokens_out),
+        "usd_per_query": (
+            st.mean(tokens_in) / 1e6 * USD_PER_MTOK_IN
+            + st.mean(tokens_out) / 1e6 * USD_PER_MTOK_OUT
+        ),
+        "results": results,
+    }
+
+
+def _tokens(usage: dict) -> dict:
+    """Sum across models — one question can touch more than one."""
+    return {
+        "tokens_in": sum(v.get("input_tokens", 0) for v in usage.values()),
+        "tokens_out": sum(v.get("output_tokens", 0) for v in usage.values()),
+    }
+
+
+def run_refusals() -> dict:
+    """§9.1 — the deliberately unanswerable questions.
+
+    Scored through the planner rather than the SQL tool, because refusing is a
+    planning decision: the failure mode being tested is a model that cheerfully
+    writes SQL for "what is my credit score?" and returns a number the ledger
+    cannot support. A refusal here is the correct answer, not an abstention.
+    """
+    from ledgerlens.agent.nodes.planner import make_plan
+
+    entries = [json.loads(line) for line in GOLDEN.read_text().splitlines() if line.strip()]
+    refusals = [e for e in entries if e["expect_refusal"]]
+
+    results = []
+    for entry in refusals:
+        with get_usage_metadata_callback() as usage:
+            plan = make_plan(entry["question"])
+        refused = not plan.answerable
+        results.append({
+            "id": entry["id"],
+            "question": entry["question"],
+            "refused": refused,
+            "reason": plan.refusal_reason,
+            **_tokens(usage.usage_metadata),
+        })
+        print(("  PASS " if refused else "  FAIL ") +
+              f"{entry['id']:11} {entry['question'][:46]:46} "
+              f"refused={refused}", flush=True)
+
+    n = len(results)
+    return {
+        "n": n,
+        "refusal_accuracy_pct": sum(r["refused"] for r in results) / n * 100,
         "results": results,
     }
 
@@ -124,10 +193,14 @@ def run(limit: int | None = None) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--skip-refusals", action="store_true")
     ap.add_argument("--out", type=Path, default=Path(__file__).parent / "golden_results.json")
     args = ap.parse_args()
 
     report = run(args.limit)
+    if not args.skip_refusals:
+        print("\n--- refusals ---")
+        report["refusals"] = run_refusals()
     args.out.write_text(json.dumps(report, indent=2, default=str) + "\n")
 
     print("\n=== §9.3 metrics ===")
@@ -137,6 +210,13 @@ def main() -> int:
     print(f"  queries fixed by repair   {report['repaired']}")
     print(f"  median latency            {report['median_latency_s']:.2f}s")
     print(f"  p90 latency               {report['p90_latency_s']:.2f}s")
+    print(f"  median tokens in/out      {report['median_tokens_in']:g} / "
+          f"{report['median_tokens_out']:g}")
+    print(f"  cost per query            ${report['usd_per_query']:.5f}  "
+          f"({report['total_tokens']:,} tokens this run)")
+    if "refusals" in report:
+        print(f"  refusal accuracy          {report['refusals']['refusal_accuracy_pct']:.1f}%  "
+              f"(n={report['refusals']['n']})")
 
     failures = [r for r in report["results"] if not r["correct"]]
     if failures:

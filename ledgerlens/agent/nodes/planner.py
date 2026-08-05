@@ -84,6 +84,10 @@ Otherwise produce the FEWEST steps that answer the question, at most {max_steps}
 - Split only when the answer genuinely needs separate retrievals, e.g.
   "did I spend more on food this semester than last" is two sums plus a
   comparison the caller performs.
+- Never collapse a comparison into one combined figure. "Compare June and July"
+  asks for both sides; a sub-question reading "total for June and July" has
+  quietly discarded the question. Either keep the two sides as separate steps,
+  or write one step that returns a row per side.
 - Prefer sql. Use semantic only when no category or merchant name fits the
   wording, and anomaly only for genuine "is this unusual" questions.
 

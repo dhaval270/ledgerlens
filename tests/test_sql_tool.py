@@ -88,3 +88,47 @@ def test_readonly_connection_blocks_mutation_even_if_the_screen_is_bypassed():
     with connect_readonly() as conn:
         with pytest.raises(sqlite3.OperationalError):
             conn.execute("DELETE FROM transactions")
+
+
+# --- the prompt follows the data, not an assumption ---------------------------
+
+def test_purchase_filter_is_suppressed_when_there_are_none(tmp_path):
+    """Observed live: "who did I pay the most?" filtered `type='purchase'` on a
+    checking ledger holding only transfers, and returned nothing."""
+    import sqlite3
+
+    from ledgerlens.agent.nodes.sql_tool import _spend_rule, _type_mix
+    from ledgerlens.db import SCHEMA_PATH
+
+    conn = sqlite3.connect(tmp_path / "t.db")
+    conn.executescript(SCHEMA_PATH.read_text())
+    conn.execute("INSERT INTO accounts (id, name) VALUES (1, 'T')")
+    for i, kind in enumerate(("transfer", "transfer", "income")):
+        conn.execute(
+            """INSERT INTO transactions (account_id, posted_date, amount, raw_descriptor,
+                                         type, source_file, content_hash, created_at)
+               VALUES (1, '2026-07-01', -10, 'd', ?, 'f', ?, 'x')""", (kind, f"h{i}"))
+    conn.commit()
+
+    assert "NO `purchase` rows" in _spend_rule(conn)
+    assert "transfer (2)" in _type_mix(conn)
+    conn.close()
+
+
+def test_purchase_filter_is_kept_when_purchases_exist(tmp_path):
+    import sqlite3
+
+    from ledgerlens.agent.nodes.sql_tool import _spend_rule
+    from ledgerlens.db import SCHEMA_PATH
+
+    conn = sqlite3.connect(tmp_path / "t.db")
+    conn.executescript(SCHEMA_PATH.read_text())
+    conn.execute("INSERT INTO accounts (id, name) VALUES (1, 'T')")
+    conn.execute(
+        """INSERT INTO transactions (account_id, posted_date, amount, raw_descriptor,
+                                     type, source_file, content_hash, created_at)
+           VALUES (1, '2026-07-01', -10, 'd', 'purchase', 'f', 'h', 'x')""")
+    conn.commit()
+
+    assert "filter `type = 'purchase'`" in _spend_rule(conn)
+    conn.close()

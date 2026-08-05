@@ -4,8 +4,12 @@
   "sql_valid_first_attempt_pct": 100.0,
   "sql_valid_final_pct": 100.0,
   "repaired": 0,
-  "median_latency_s": 4.613244414329529,
-  "p90_latency_s": 5.582269906997681,
+  "median_latency_s": 4.630462646484375,
+  "p90_latency_s": 5.632381916046143,
+  "median_tokens_in": 958.0,
+  "median_tokens_out": 56.5,
+  "total_tokens": 47074,
+  "usd_per_query": 0.0006166056521739131,
   "results": [
     {
       "id": "agg-01",
@@ -16,8 +20,10 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'groceries' AND substr(t.posted_date,1,7) = '2026-03'",
-      "seconds": 1.5636489391326904
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'groceries' AND substr(t.posted_date,1,7) = '2026-03' AND t.type = 'purchase'",
+      "seconds": 1.3594679832458496,
+      "tokens_in": 962,
+      "tokens_out": 77
     },
     {
       "id": "agg-02",
@@ -29,7 +35,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND substr(posted_date,1,7) = '2026-01'",
-      "seconds": 0.5775699615478516
+      "seconds": 0.32703280448913574,
+      "tokens_in": 960,
+      "tokens_out": 50
     },
     {
       "id": "agg-03",
@@ -41,7 +49,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(id) FROM transactions",
-      "seconds": 0.313784122467041
+      "seconds": 0.246384859085083,
+      "tokens_in": 958,
+      "tokens_out": 27
     },
     {
       "id": "agg-04",
@@ -53,7 +63,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT raw_descriptor FROM transactions WHERE type = 'purchase' ORDER BY amount ASC LIMIT 1",
-      "seconds": 0.43143510818481445
+      "seconds": 0.4328038692474365,
+      "tokens_in": 956,
+      "tokens_out": 46
     },
     {
       "id": "agg-05",
@@ -65,7 +77,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'coffee' AND t.type = 'purchase'",
-      "seconds": 0.4217710494995117
+      "seconds": 0.5036230087280273,
+      "tokens_in": 961,
+      "tokens_out": 56
     },
     {
       "id": "agg-06",
@@ -77,7 +91,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(*) FROM transactions AS t JOIN categories AS c ON t.category_id = c.id WHERE c.name = 'coffee' AND t.type = 'purchase'",
-      "seconds": 0.4910762310028076
+      "seconds": 0.5677897930145264,
+      "tokens_in": 957,
+      "tokens_out": 52
     },
     {
       "id": "agg-07",
@@ -89,7 +105,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT AVG(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'groceries' AND t.type = 'purchase'",
-      "seconds": 0.5099449157714844
+      "seconds": 0.566979169845581,
+      "tokens_in": 956,
+      "tokens_out": 50
     },
     {
       "id": "agg-08",
@@ -101,7 +119,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'income'",
-      "seconds": 0.40618014335632324
+      "seconds": 0.4589509963989258,
+      "tokens_in": 957,
+      "tokens_out": 29
     },
     {
       "id": "agg-09",
@@ -113,7 +133,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE category_id = (SELECT id FROM categories WHERE name = 'fees') AND type = 'purchase'",
-      "seconds": 0.5160489082336426
+      "seconds": 0.5643229484558105,
+      "tokens_in": 958,
+      "tokens_out": 50
     },
     {
       "id": "agg-10",
@@ -125,7 +147,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE category_id = (SELECT id FROM categories WHERE name = 'rent') AND type = 'purchase'",
-      "seconds": 0.5668580532073975
+      "seconds": 0.42716097831726074,
+      "tokens_in": 959,
+      "tokens_out": 45
     },
     {
       "id": "date-01",
@@ -137,7 +161,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND posted_date >= '2026-01-01' AND posted_date <= '2026-03-31'",
-      "seconds": 0.36515116691589355
+      "seconds": 0.5065362453460693,
+      "tokens_in": 971,
+      "tokens_out": 69
     },
     {
       "id": "date-02",
@@ -149,7 +175,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND posted_date >= '2026-05-01'",
-      "seconds": 0.5004880428314209
+      "seconds": 0.502460241317749,
+      "tokens_in": 962,
+      "tokens_out": 48
     },
     {
       "id": "date-03",
@@ -160,8 +188,10 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'dining' AND substr(t.posted_date, 1, 7) >= '2025-07' AND t.type = 'purchase'",
-      "seconds": 0.5145583152770996
+      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'dining' AND t.type = 'purchase' AND substr(t.posted_date, 1, 7) >= '2025-07'",
+      "seconds": 4.501116037368774,
+      "tokens_in": 965,
+      "tokens_out": 80
     },
     {
       "id": "date-04",
@@ -173,7 +203,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT MIN(posted_date) FROM transactions",
-      "seconds": 3.7873899936676025
+      "seconds": 5.429497718811035,
+      "tokens_in": 958,
+      "tokens_out": 27
     },
     {
       "id": "date-05",
@@ -185,7 +217,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT MAX(posted_date) FROM transactions",
-      "seconds": 4.70861291885376
+      "seconds": 5.587482929229736,
+      "tokens_in": 959,
+      "tokens_out": 29
     },
     {
       "id": "date-06",
@@ -197,7 +231,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'travel') AND substr(posted_date,1,7) = '2026-04'",
-      "seconds": 4.610795974731445
+      "seconds": 4.533765077590942,
+      "tokens_in": 962,
+      "tokens_out": 68
     },
     {
       "id": "date-07",
@@ -209,7 +245,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(DISTINCT substr(posted_date,1,7)) FROM transactions",
-      "seconds": 4.746302127838135
+      "seconds": 5.504856109619141,
+      "tokens_in": 958,
+      "tokens_out": 36
     },
     {
       "id": "date-08",
@@ -221,7 +259,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND substr(posted_date,1,7) = '2025-12'",
-      "seconds": 5.528323173522949
+      "seconds": 4.443066835403442,
+      "tokens_in": 960,
+      "tokens_out": 51
     },
     {
       "id": "cmp-01",
@@ -233,7 +273,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT CASE WHEN SUM(CASE WHEN c.name = 'groceries' THEN t.amount ELSE 0 END) < SUM(CASE WHEN c.name = 'dining' THEN t.amount ELSE 0 END) THEN 'dining' ELSE 'groceries' END FROM transactions t JOIN categories c ON t.category_id = c.id WHERE t.type = 'purchase'",
-      "seconds": 4.949043035507202
+      "seconds": 5.487988233566284,
+      "tokens_in": 959,
+      "tokens_out": 94
     },
     {
       "id": "cmp-02",
@@ -245,7 +287,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(CASE WHEN substr(posted_date,1,7) = '2026-04' THEN amount ELSE 0 END) - SUM(CASE WHEN substr(posted_date,1,7) = '2026-03' THEN amount ELSE 0 END) AS diff FROM transactions WHERE type = 'purchase'",
-      "seconds": 4.822451829910278
+      "seconds": 5.5111610889434814,
+      "tokens_in": 967,
+      "tokens_out": 95
     },
     {
       "id": "cmp-03",
@@ -256,8 +300,10 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT substr(posted_date,1,7) AS month FROM transactions WHERE type = 'purchase' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1",
-      "seconds": 5.810690879821777
+      "sql": "SELECT substr(posted_date,1,7) FROM transactions WHERE type = 'purchase' GROUP BY substr(posted_date,1,7) ORDER BY SUM(amount) ASC LIMIT 1",
+      "seconds": 4.4653120040893555,
+      "tokens_in": 957,
+      "tokens_out": 61
     },
     {
       "id": "cmp-04",
@@ -269,7 +315,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT c.name FROM categories c JOIN transactions t ON c.id = t.category_id WHERE t.type = 'purchase' GROUP BY c.name ORDER BY SUM(t.amount) ASC LIMIT 1",
-      "seconds": 4.9123828411102295
+      "seconds": 5.526792287826538,
+      "tokens_in": 958,
+      "tokens_out": 94
     },
     {
       "id": "cmp-05",
@@ -281,7 +329,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT M.canonical_name FROM merchants M JOIN transactions T ON M.id = T.merchant_id WHERE T.type = 'purchase' GROUP BY M.canonical_name ORDER BY SUM(T.amount) ASC LIMIT 1",
-      "seconds": 4.90730619430542
+      "seconds": 4.507797002792358,
+      "tokens_in": 959,
+      "tokens_out": 92
     },
     {
       "id": "cmp-06",
@@ -293,7 +343,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT M.canonical_name FROM merchants M JOIN transactions T ON M.id = T.merchant_id GROUP BY M.canonical_name ORDER BY COUNT(T.id) DESC LIMIT 1",
-      "seconds": 4.870843887329102
+      "seconds": 5.623427867889404,
+      "tokens_in": 957,
+      "tokens_out": 75
     },
     {
       "id": "cmp-07",
@@ -304,8 +356,10 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT CASE WHEN SUM(CASE WHEN substr(posted_date, 1, 7) < '2026-01' THEN amount ELSE 0 END) < SUM(CASE WHEN substr(posted_date, 1, 7) >= '2026-01' THEN amount ELSE 0 END) THEN 'yes' ELSE 'no' END FROM transactions WHERE type = 'purchase'",
-      "seconds": 5.191614151000977
+      "sql": "SELECT CASE WHEN SUM(CASE WHEN substr(posted_date, 1, 7) < '2026-01' THEN amount ELSE 0 END) < SUM(CASE WHEN substr(posted_date, 1, 7) >= '2026-01' THEN amount ELSE 0 END) THEN 'yes' ELSE 'no' END AS result FROM transactions WHERE type = 'purchase'",
+      "seconds": 5.5383689403533936,
+      "tokens_in": 963,
+      "tokens_out": 107
     },
     {
       "id": "cmp-08",
@@ -317,7 +371,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(CASE WHEN c.name = 'dining' THEN t.amount ELSE 0 END) - SUM(CASE WHEN c.name = 'groceries' THEN t.amount ELSE 0 END) AS difference FROM transactions t JOIN categories c ON t.category_id = c.id WHERE t.type = 'purchase'",
-      "seconds": 4.739766597747803
+      "seconds": 5.526713132858276,
+      "tokens_in": 961,
+      "tokens_out": 84
     },
     {
       "id": "mer-01",
@@ -329,7 +385,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE m.canonical_name = 'Amazon' AND t.type = 'purchase'",
-      "seconds": 5.8133790493011475
+      "seconds": 5.632381916046143,
+      "tokens_in": 957,
+      "tokens_out": 55
     },
     {
       "id": "mer-02",
@@ -341,7 +399,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(id) FROM transactions WHERE merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Target')",
-      "seconds": 4.562342882156372
+      "seconds": 4.33267879486084,
+      "tokens_in": 958,
+      "tokens_out": 44
     },
     {
       "id": "mer-03",
@@ -353,7 +413,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT AVG(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE m.canonical_name = 'Netflix' AND t.type = 'purchase'",
-      "seconds": 4.5618109703063965
+      "seconds": 5.6914660930633545,
+      "tokens_in": 958,
+      "tokens_out": 56
     },
     {
       "id": "mer-04",
@@ -365,7 +427,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(DISTINCT merchant_id) FROM transactions WHERE type = 'purchase'",
-      "seconds": 4.482433080673218
+      "seconds": 4.516132831573486,
+      "tokens_in": 958,
+      "tokens_out": 35
     },
     {
       "id": "mer-05",
@@ -377,7 +441,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE m.canonical_name = 'Whole Foods' AND t.type = 'purchase'",
-      "seconds": 5.67123818397522
+      "seconds": 5.5501930713653564,
+      "tokens_in": 957,
+      "tokens_out": 57
     },
     {
       "id": "mer-06",
@@ -389,7 +455,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.type = 'purchase' AND m.canonical_name = 'Uber'",
-      "seconds": 4.45739221572876
+      "seconds": 4.584088087081909,
+      "tokens_in": 958,
+      "tokens_out": 56
     },
     {
       "id": "rec-01",
@@ -401,19 +469,23 @@
       "executed": true,
       "error": null,
       "sql": "SELECT COUNT(id) FROM recurring_series WHERE active = 1",
-      "seconds": 4.368527889251709
+      "seconds": 5.401343107223511,
+      "tokens_in": 957,
+      "tokens_out": 34
     },
     {
       "id": "rec-02",
       "question": "Did any of my subscriptions go up in price?",
       "expected": "Spotify",
-      "got": null,
+      "got": "no",
       "correct": false,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT CASE WHEN typical_amount < last_amount THEN 'yes' ELSE 'no' END AS price_increase FROM recurring_series WHERE merchant_id IN (SELECT id FROM merchants WHERE default_category_id = (SELECT id FROM categories WHERE name = 'subscriptions')) AND active = 1 AND typical_amount < last_amount",
-      "seconds": 5.538244962692261
+      "sql": "SELECT CASE WHEN typical_amount < last_amount THEN 'yes' ELSE 'no' END AS price_increase FROM recurring_series WHERE merchant_id IN (SELECT id FROM merchants WHERE default_category_id = (SELECT id FROM categories WHERE name = 'subscriptions'))",
+      "seconds": 4.462047100067139,
+      "tokens_in": 959,
+      "tokens_out": 69
     },
     {
       "id": "rec-03",
@@ -425,31 +497,37 @@
       "executed": true,
       "error": null,
       "sql": "SELECT merchants.canonical_name FROM merchants JOIN recurring_series ON merchants.id = recurring_series.merchant_id ORDER BY recurring_series.typical_amount DESC LIMIT 1",
-      "seconds": 4.488795042037964
+      "seconds": 5.504701137542725,
+      "tokens_in": 957,
+      "tokens_out": 51
     },
     {
       "id": "rec-04",
       "question": "How much do my subscriptions cost me per month in total?",
       "expected": -50.47,
-      "got": -52.269999999999996,
+      "got": -609.24,
       "correct": false,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'subscriptions' AND type = 'purchase' AND substr(t.posted_date,1,7) = '2026-07'",
-      "seconds": 5.514716148376465
+      "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'purchase' AND category_id IN (SELECT id FROM categories WHERE name = 'subscriptions') AND posted_date >= '2025-08-01' AND posted_date <= '2026-07-31'",
+      "seconds": 4.547931909561157,
+      "tokens_in": 961,
+      "tokens_out": 69
     },
     {
       "id": "rec-05",
       "question": "Is my travel spending unusual in any month?",
       "expected": "2026-04",
-      "got": "2025-08",
-      "correct": false,
+      "got": "2026-04",
+      "correct": true,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT substr(posted_date,1,7) FROM transactions WHERE type = 'purchase' AND category_id = (SELECT id FROM categories WHERE name = 'travel') GROUP BY substr(posted_date,1,7) HAVING AVG(amount) < (SELECT AVG(amount) * 0.5 FROM transactions WHERE type = 'purchase' AND category_id = (SELECT id FROM categories WHERE name = 'travel'))",
-      "seconds": 4.615692853927612
+      "sql": "SELECT substr(t.posted_date,1,7) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'travel' AND t.type = 'purchase' GROUP BY substr(t.posted_date,1,7) HAVING SUM(t.amount) < (SELECT AVG(travel_monthly_avg) FROM (SELECT substr(t2.posted_date,1,7) as month, SUM(t2.amount) as travel_monthly_avg FROM transactions t2 JOIN categories c2 ON t2.category_id = c2.id WHERE c2.name = 'travel' AND t2.type = 'purchase' GROUP BY substr(t2.posted_date,1,7)) AS travel_avg)",
+      "seconds": 5.6374030113220215,
+      "tokens_in": 958,
+      "tokens_out": 163
     },
     {
       "id": "rec-06",
@@ -460,8 +538,10 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT MIN(posted_date) FROM transactions WHERE merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Peloton')",
-      "seconds": 5.725472927093506
+      "sql": "SELECT MIN(T1.posted_date) FROM transactions AS T1 INNER JOIN merchants AS T2 ON T1.merchant_id = T2.id WHERE T2.canonical_name = 'Peloton'",
+      "seconds": 5.577890872955322,
+      "tokens_in": 958,
+      "tokens_out": 65
     },
     {
       "id": "multi-01",
@@ -473,7 +553,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT CAST(SUM(CASE WHEN c.is_essential = 1 THEN t.amount ELSE 0 END) AS REAL) * 100 / SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE t.type = 'purchase'",
-      "seconds": 5.306850910186768
+      "seconds": 5.635455846786499,
+      "tokens_in": 958,
+      "tokens_out": 74
     },
     {
       "id": "multi-02",
@@ -485,7 +567,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT T2.name FROM transactions AS T1 INNER JOIN categories AS T2 ON T1.category_id = T2.id WHERE substr(T1.posted_date, 1, 7) = (SELECT substr(posted_date, 1, 7) FROM transactions WHERE type = 'purchase' GROUP BY substr(posted_date, 1, 7) ORDER BY SUM(amount) ASC LIMIT 1) AND T1.type = 'purchase' GROUP BY T2.name ORDER BY SUM(T1.amount) ASC LIMIT 1",
-      "seconds": 4.007491111755371
+      "seconds": 4.676837205886841,
+      "tokens_in": 960,
+      "tokens_out": 138
     },
     {
       "id": "multi-03",
@@ -497,19 +581,23 @@
       "executed": true,
       "error": null,
       "sql": "SELECT AVG(T1.amount) AS average_monthly_spending FROM transactions AS T1 WHERE T1.type = 'purchase' AND T1.posted_date >= '2025-08-01' AND T1.posted_date <= '2026-07-31'",
-      "seconds": 5.582269906997681
+      "seconds": 5.510020017623901,
+      "tokens_in": 956,
+      "tokens_out": 72
     },
     {
       "id": "multi-04",
       "question": "How much did I save, counting income minus spending?",
       "expected": 5119.53,
-      "got": 5131.230000000003,
-      "correct": true,
+      "got": 117068.76999999999,
+      "correct": false,
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT SUM(CASE WHEN type = 'purchase' THEN amount ELSE 0 END) + SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS savings FROM transactions",
-      "seconds": 5.4993579387664795
+      "sql": "SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) - SUM(CASE WHEN type = 'purchase' THEN amount ELSE 0 END) AS savings FROM transactions",
+      "seconds": 5.478779077529907,
+      "tokens_in": 960,
+      "tokens_out": 59
     },
     {
       "id": "multi-05",
@@ -520,8 +608,10 @@
       "attempts": 1,
       "executed": true,
       "error": null,
-      "sql": "SELECT CAST(SUM(CASE WHEN t.merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Trader Joe') THEN t.amount ELSE 0 END) AS REAL) * 100 / SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'groceries' AND t.type = 'purchase'",
-      "seconds": 4.629658937454224
+      "sql": "SELECT CAST(SUM(CASE WHEN t.merchant_id = (SELECT id FROM merchants WHERE canonical_name = 'Trader Joe') THEN t.amount ELSE 0 END) AS REAL) * 100 / SUM(t.amount) FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.type = 'purchase' AND t.category_id = (SELECT id FROM categories WHERE name = 'groceries')",
+      "seconds": 4.708927154541016,
+      "tokens_in": 961,
+      "tokens_out": 109
     },
     {
       "id": "sem-01",
@@ -533,7 +623,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name = 'health'",
-      "seconds": 5.481814861297607
+      "seconds": 5.670657157897949,
+      "tokens_in": 958,
+      "tokens_out": 47
     },
     {
       "id": "sem-02",
@@ -545,7 +637,9 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(t.amount) FROM transactions t JOIN categories c ON t.category_id = c.id WHERE c.name IN ('entertainment', 'dining') AND t.type = 'purchase'",
-      "seconds": 4.616364240646362
+      "seconds": 4.342241048812866,
+      "tokens_in": 958,
+      "tokens_out": 60
     },
     {
       "id": "sem-03",
@@ -557,7 +651,71 @@
       "executed": true,
       "error": null,
       "sql": "SELECT SUM(amount) FROM transactions WHERE category_id = (SELECT id FROM categories WHERE name = 'travel') AND type = 'purchase'",
-      "seconds": 4.505462884902954
+      "seconds": 5.350742816925049,
+      "tokens_in": 956,
+      "tokens_out": 46
     }
-  ]
+  ],
+  "refusals": {
+    "n": 7,
+    "refusal_accuracy_pct": 100.0,
+    "results": [
+      {
+        "id": "refuse-01",
+        "question": "What will I spend next month?",
+        "refused": true,
+        "reason": "The ledger cannot answer questions about the future.",
+        "tokens_in": 685,
+        "tokens_out": 29
+      },
+      {
+        "id": "refuse-02",
+        "question": "What is my credit score?",
+        "refused": true,
+        "reason": "Credit score is not in bank data",
+        "tokens_in": 684,
+        "tokens_out": 28
+      },
+      {
+        "id": "refuse-03",
+        "question": "What is my current account balance?",
+        "refused": true,
+        "reason": "The ledger does not hold account balance information.",
+        "tokens_in": 685,
+        "tokens_out": 29
+      },
+      {
+        "id": "refuse-04",
+        "question": "Should I invest in index funds?",
+        "refused": true,
+        "reason": "The ledger cannot provide advice on investment decisions.",
+        "tokens_in": 685,
+        "tokens_out": 29
+      },
+      {
+        "id": "refuse-05",
+        "question": "How much did I spend on groceries in 2019?",
+        "refused": true,
+        "reason": "The ledger only contains data from 2025-08-01 to 2026-07-31",
+        "tokens_in": 690,
+        "tokens_out": 42
+      },
+      {
+        "id": "refuse-06",
+        "question": "What is my employer's annual revenue?",
+        "refused": true,
+        "reason": "The ledger does not contain information about the employer's annual revenue.",
+        "tokens_in": 686,
+        "tokens_out": 33
+      },
+      {
+        "id": "refuse-07",
+        "question": "Am I on track to retire comfortably?",
+        "refused": true,
+        "reason": "The ledger cannot provide advice or forecasting, and retirement planning requires information not available in the bank data.",
+        "tokens_in": 686,
+        "tokens_out": 36
+      }
+    ]
+  }
 }
