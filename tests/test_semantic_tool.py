@@ -99,5 +99,19 @@ def test_semantic_hands_off_to_sql_when_a_figure_is_needed():
     assert route_after_semantic(state) == "sql_tool"
 
 
-def test_semantic_only_plan_goes_straight_to_answer():
-    assert route_after_semantic({"plan": [{"tool": "semantic"}]}) == "answer"
+def test_semantic_only_plan_still_reaches_sql():
+    """Retrieval alone can never answer, so it must never be the last hop.
+
+    This test previously asserted the opposite — that a semantic-only plan
+    routes to `answer` — and passed for the life of the project. It was wrong.
+    `semantic_tool` returns an explicitly empty `rows` (§6.5 forbids it
+    producing figures), so that path reached the answer node with nothing to
+    render and reported "no matching transactions" over a retrieval that had
+    actually found the right rows.
+
+    Nothing caught it because the golden harness called `run_query()` directly
+    and never built the graph. Scoring end to end surfaced it immediately:
+    three of ten semantic queries planned semantic-only, and all three returned
+    no_data.
+    """
+    assert route_after_semantic({"plan": [{"tool": "semantic"}]}) == "sql_tool"

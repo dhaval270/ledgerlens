@@ -50,10 +50,24 @@ def route_after_planner(state: AgentState) -> str:
 
 
 def route_after_semantic(state: AgentState) -> str:
-    """Hand retrieved IDs to SQL when the plan needs a figure from them."""
-    if any(step.get("tool") == "sql" for step in state.get("plan", [])):
-        return "sql_tool"
-    return "answer"
+    """Always hand retrieved IDs to SQL. Retrieval alone cannot answer anything.
+
+    This used to be conditional on the plan naming an `sql` step. But §6.5 has
+    `semantic_tool` return transaction IDs and an explicitly empty `rows` — it
+    is forbidden from producing a figure — so a semantic-only plan reached the
+    answer node with nothing to render and reported "no matching transactions"
+    over a retrieval that had in fact succeeded.
+
+    The dead end was unreachable from the old eval, which called the SQL tool
+    directly and never built the graph. It appeared the moment questions were
+    scored end to end: three of ten semantic queries planned semantic-only and
+    all three returned no_data despite retrieving the right rows.
+
+    Routing unconditionally is safe because `sql_tool` falls back to the
+    original question when the plan named no SQL step, and scopes itself to the
+    retrieved IDs either way.
+    """
+    return "sql_tool"
 
 
 def route_after_verifier(state: AgentState) -> str:

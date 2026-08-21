@@ -208,7 +208,7 @@ def _table_counts(conn: sqlite3.Connection) -> str:
 
 def generate_sql(question: str, repair: str = "",
                  transaction_ids: list[int] | None = None) -> GeneratedSQL:
-    from ...llm import get_structured_llm
+    from ...llm import invoke_structured
 
     with connect_readonly() as conn:
         date_min, date_max = _date_bounds(conn)
@@ -221,7 +221,8 @@ def generate_sql(question: str, repair: str = "",
         scope = (f"\n\nRestrict the query to these transaction ids, which a "
                  f"semantic search already selected:\n  t.id IN ({ids})")
 
-    return get_structured_llm(GeneratedSQL).invoke(
+    return invoke_structured(
+        GeneratedSQL,
         scope + PROMPT.format(
             schema=compact_schema(),
             question=question,

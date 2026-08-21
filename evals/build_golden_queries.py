@@ -3,7 +3,16 @@
 Expected values are *computed* by running reference SQL against the populated
 database, never hand-written. Hand-typed figures rot the moment the generator
 changes and quietly turn a passing eval into a lie; computed ones stay true
-because the synthetic data is seeded and deterministic.
+because they are re-derived from whatever is actually in the ledger.
+
+**The ledger itself is not reproducible.** The transaction generator is seeded,
+but tier-3 merchant resolution calls an LLM, so rebuilding from the same CSV
+does not produce the same `merchants` table: two consecutive rebuilds named the
+same airline `Delta` and then `Delta Air Lines`, silently breaking a reference
+SQL that matched on equality. Reference SQL must therefore match merchant names
+by prefix (`LIKE 'Delta%'`), never by `=`, unless the name comes from a
+deterministic tier. Nothing downstream can assume a stable merchant vocabulary,
+including any figure quoted from a previous run.
 
 The reference SQL is the answer key, not a template the agent must reproduce.
 Execution accuracy compares final values, so any SQL reaching the same number
@@ -29,8 +38,58 @@ OUT = Path(__file__).parent / "golden_queries.jsonl"
 
 PURCHASE = "t.type = 'purchase'"
 
-# (id, question, tools, reference_sql | None, note)
-# reference_sql must return exactly one scalar. None marks a refusal case.
+
+# --- detector-backed answer keys ---------------------------------------------
+# SQLite has no STDDEV, and §6.6's baseline is leave-one-out over a trailing
+# window — procedural, not expressible as a scalar SELECT. Rather than hand-type
+# the figures (which is exactly what this file exists to avoid), these read the
+# detector itself. The invariant holds: expected values are still *computed*,
+# and `test_expected_values_still_match_reference_sql` re-runs them the same way.
+#
+# This makes the detector its own answer key, so these queries cannot catch a
+# detector that is wrong — only one that has *changed*. What they do test is the
+# agent path: whether the planner routes here at all, and whether the findings
+# survive to the answer intact.
+
+def _findings(conn: sqlite3.Connection):
+    from ledgerlens.agent.nodes.anomaly_tool import detect
+
+    return detect(conn)
+
+
+def top_anomaly_category(conn):
+    return _findings(conn)[0].category
+
+
+def top_anomaly_period(conn):
+    return _findings(conn)[0].period
+
+
+def top_anomaly_observed(conn):
+    return _findings(conn)[0].observed
+
+
+def top_anomaly_baseline(conn):
+    return _findings(conn)[0].baseline_mean
+
+
+def top_decline_category(conn):
+    return next(f.category for f in _findings(conn) if f.direction == "below")
+
+
+def anomaly_count(conn):
+    return len(_findings(conn))
+
+
+DETECTORS = {fn.__name__: fn for fn in (
+    top_anomaly_category, top_anomaly_period, top_anomaly_observed,
+    top_anomaly_baseline, top_decline_category, anomaly_count,
+)}
+
+
+# (id, question, tools, reference, note)
+# `reference` is SQL returning exactly one scalar, a callable from DETECTORS,
+# or None to mark a refusal case.
 QUERIES: list[tuple[str, str, list[str], str | None, str]] = [
 
     # --- simple aggregates -------------------------------------------------
@@ -154,16 +213,16 @@ QUERIES: list[tuple[str, str, list[str], str | None, str]] = [
     # --- merchant-specific --------------------------------------------------
     ("mer-01", "How much did I spend at Amazon?", ["sql"],
      f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
-         WHERE m.canonical_name='Amazon' AND {PURCHASE}""",
+         WHERE m.canonical_name LIKE 'Amazon%' AND {PURCHASE}""",
      "the merchant that was split before the tier-3 fix"),
 
     ("mer-02", "How many times did I shop at Target?", ["sql"],
      f"""SELECT COUNT(*) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
-         WHERE m.canonical_name='Target' AND {PURCHASE}""", "merchant count"),
+         WHERE m.canonical_name LIKE 'Target%' AND {PURCHASE}""", "merchant count"),
 
     ("mer-03", "How much do I pay Netflix each month?", ["sql"],
      """SELECT ROUND(s.typical_amount,2) FROM recurring_series s
-        JOIN merchants m ON m.id=s.merchant_id WHERE m.canonical_name='Netflix'""",
+        JOIN merchants m ON m.id=s.merchant_id WHERE m.canonical_name LIKE 'Netflix%'""",
      "reads recurring_series, not raw transactions"),
 
     ("mer-04", "How many distinct merchants have I bought from?", ["sql"],
@@ -177,7 +236,7 @@ QUERIES: list[tuple[str, str, list[str], str | None, str]] = [
 
     ("mer-06", "How much did I spend on Uber rides?", ["sql"],
      f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
-         WHERE m.canonical_name='Uber' AND {PURCHASE}""", "merchant total"),
+         WHERE m.canonical_name LIKE 'Uber%' AND {PURCHASE}""", "merchant total"),
 
     # --- recurring / anomaly ------------------------------------------------
     ("rec-01", "How many recurring charges do I have?", ["sql"],
@@ -251,6 +310,82 @@ QUERIES: list[tuple[str, str, list[str], str | None, str]] = [
      f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN categories c ON c.id=t.category_id
          WHERE c.name='travel' AND {PURCHASE}""", "colloquial phrasing"),
 
+    # Each of the below names neither a category nor a merchant, so the wording
+    # alone cannot be matched by a literal filter — which is the condition §6.3
+    # gives for routing to `semantic` at all.
+    #
+    # Every target is deliberately under TOP_K (20) transactions. §6.5 scopes the
+    # SQL to the IDs retrieval returned, so a question whose true answer spans
+    # more rows than retrieval returns is unanswerable *by construction* through
+    # this path — the ceiling is the retrieval depth, not the model. sem-01..03
+    # above sit on the wrong side of that line (health is 52 rows, travel 21),
+    # which is worth knowing and is why these were added rather than replacing
+    # them.
+
+    ("sem-04", "What do I pay for my gym membership?", ["semantic", "sql"],
+     f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
+         WHERE m.canonical_name LIKE 'Planet Fit%' AND {PURCHASE}""",
+     "13 rows; 'gym' appears in no field — descriptor reads PLANET FIT"),
+
+    ("sem-05", "How much did that hotel stay in Austin cost me?", ["semantic", "sql"],
+     f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
+         WHERE m.canonical_name LIKE 'Marriott%' AND {PURCHASE}""",
+     "8 rows; the city is only in raw_descriptor, so recall must read it"),
+
+    ("sem-06", "How much have I spent on flights?", ["semantic", "sql"],
+     f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
+         WHERE m.canonical_name LIKE 'Delta%' AND {PURCHASE}""",
+     "13 rows; category is 'travel', which also holds hotels — 'flights' is narrower"),
+
+    ("sem-07", "What is my creative software subscription costing me?", ["semantic", "sql"],
+     f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
+         WHERE m.canonical_name LIKE 'Adobe%' AND {PURCHASE}""",
+     "12 rows; one of several merchants inside 'subscriptions'"),
+
+    ("sem-08", "How much do I pay for internet and TV?", ["semantic", "sql"],
+     f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
+         WHERE m.canonical_name LIKE 'Comcast%' AND {PURCHASE}""",
+     "12 rows; descriptor is COMCAST *XFINITY, neither word in the question"),
+
+    ("sem-09", "What did that exercise bike cost?", ["semantic", "sql"],
+     f"""SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
+         WHERE m.canonical_name LIKE 'Peloton%' AND {PURCHASE}""",
+     "a single row — the hardest possible retrieval target"),
+
+    ("sem-10", "How much have I lost to cash machine charges?", ["semantic", "sql"],
+     """SELECT ROUND(SUM(t.amount),2) FROM transactions t JOIN merchants m ON m.id=t.merchant_id
+        WHERE m.canonical_name LIKE 'ATM Fee%'""",
+     "3 rows, and type='fee' — a purchase filter here returns nothing"),
+
+    # --- anomaly routing ----------------------------------------------------
+    # §6.6 is reachable from the graph but was never scored: the golden harness
+    # called the SQL tool directly, so `anomaly` had appeared in two `tools`
+    # fields for months without the node ever executing under evaluation.
+    #
+    # Note what the detector returns — every finding, ranked, ignoring the
+    # sub-question — and what the answer node does with it: renders the first
+    # five without computing. Questions needing arithmetic *over* findings, or a
+    # finding ranked sixth or lower, are outside what this path can express.
+    # anom-06 is included precisely because it asks for a count.
+
+    ("anom-01", "Which category had the most unusual month?", ["anomaly"],
+     top_anomaly_category, "the top-ranked finding by severity"),
+
+    ("anom-02", "In which month did my travel spending look abnormal?", ["anomaly"],
+     top_anomaly_period, "period of the top finding — the injected spike"),
+
+    ("anom-03", "How much did I actually spend in that abnormal travel month?", ["anomaly"],
+     top_anomaly_observed, "observed magnitude, positive — must survive to the answer"),
+
+    ("anom-04", "What is my normal monthly travel spend, ignoring the spike?", ["anomaly"],
+     top_anomaly_baseline, "the leave-one-out baseline; a plain AVG would differ"),
+
+    ("anom-05", "Did my spending drop unusually low in any category?", ["anomaly"],
+     top_decline_category, "direction='below' — decreases are anomalies too"),
+
+    ("anom-06", "How many category-months look statistically unusual?", ["anomaly"],
+     anomaly_count, "a count over findings; the answer node renders 5 and computes nothing"),
+
     # --- deliberately unanswerable: the correct answer is a refusal ---------
     ("refuse-01", "What will I spend next month?", [], None,
      "no forecasting capability; must refuse rather than extrapolate"),
@@ -278,20 +413,31 @@ QUERIES: list[tuple[str, str, list[str], str | None, str]] = [
 def build(conn: sqlite3.Connection) -> list[dict]:
     entries, failures = [], []
 
-    for qid, question, tools, sql, note in QUERIES:
+    for qid, question, tools, reference, note in QUERIES:
         entry = {
             "id": qid,
             "question": question,
             "tools": tools,
             "note": note,
-            "expect_refusal": sql is None,
+            "expect_refusal": reference is None,
         }
 
-        if sql is None:
+        if reference is None:
             entry["expected_value"] = None
+        elif callable(reference):
+            try:
+                value = reference(conn)
+            except Exception as exc:
+                failures.append((qid, f"{reference.__name__}: {exc}"))
+                continue
+            if value is None:
+                failures.append((qid, f"{reference.__name__} returned None"))
+                continue
+            entry["expected_value"] = value
+            entry["reference_fn"] = reference.__name__
         else:
             try:
-                row = conn.execute(sql).fetchone()
+                row = conn.execute(reference).fetchone()
             except sqlite3.Error as exc:
                 failures.append((qid, str(exc)))
                 continue
@@ -299,7 +445,7 @@ def build(conn: sqlite3.Connection) -> list[dict]:
                 failures.append((qid, "reference SQL returned NULL"))
                 continue
             entry["expected_value"] = row[0]
-            entry["reference_sql"] = " ".join(sql.split())
+            entry["reference_sql"] = " ".join(reference.split())
 
         entries.append(entry)
 

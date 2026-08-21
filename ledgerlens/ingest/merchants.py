@@ -164,11 +164,11 @@ def _llm_resolve(descriptor: str, known: list[str]) -> tuple[str, float]:
     noise into the canonical name ("Marriott Austin TX"), which then splits the
     merchant and silently halves every aggregate over it.
     """
-    from ..llm import get_structured_llm
+    from ..llm import invoke_structured
 
     listing = "\n".join(f"- {n}" for n in sorted(known)) if known else "(none yet)"
-    result = get_structured_llm(MerchantName).invoke(
-        PROMPT.format(descriptor=descriptor, known=listing)
+    result = invoke_structured(
+        MerchantName, PROMPT.format(descriptor=descriptor, known=listing)
     )
     name = result.canonical_name.strip()
     if not name:

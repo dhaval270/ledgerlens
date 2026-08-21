@@ -26,6 +26,48 @@ def test_extracts_negatives_and_percentages():
     assert 53.5 in got
 
 
+# --- calendar references are periods, not claims -----------------------------
+
+def test_a_bare_year_is_not_a_numeric_claim():
+    assert 2026 not in extract_numerics("total spent in June 2026 -> -738.60")
+
+
+def test_a_year_month_string_is_not_a_numeric_claim():
+    got = extract_numerics("2026-04 -> 2995.70")
+    assert 2026 not in got and 2995.70 in got
+
+
+def test_an_amount_that_looks_like_a_year_is_still_checked():
+    """The whole risk of stripping years: a real figure hiding as one."""
+    assert 2026.00 in extract_numerics("You spent $2026.00 at Delta.")
+    assert 2026.50 in extract_numerics("The total came to 2026.50.")
+
+
+def test_a_correct_month_comparison_verifies():
+    """The live regression: two correct sides, rejected over the year.
+
+    "Did I spend more in June or July?" replanned correctly and returned both
+    figures. The answer echoed its sub-questions — "June 2026", "July 2026" —
+    and four copies of 2026 were counted as unsupported claims, so the one
+    answer that best demonstrates the comparison logic carried a warning.
+    """
+    verdict = verify(
+        "total spent in June 2026 -> -738.6 | total spent in July 2026 -> -695.34",
+        rows({"total": -738.6}, {"total": -695.34}),
+    )
+    assert verdict["pass"], verdict["reason"]
+
+
+def test_a_year_outside_the_retrieved_range_is_still_rejected():
+    """Stripping years from claims must not disable the range check."""
+    verdict = verify(
+        "In 2019 you spent -500.00",
+        rows({"posted_date": "2026-03-01", "total": -500.00}),
+    )
+    assert not verdict["pass"]
+    assert "2019" in verdict["reason"]
+
+
 # --- the core claim: unsupported numbers are rejected ------------------------
 
 def test_supported_figure_passes():

@@ -252,7 +252,28 @@ async def ingest(file: UploadFile = File(...)) -> dict:
     except StatementError as exc:
         raise HTTPException(400, str(exc)) from exc
 
-    return {**result.as_dict(), **resolution}
+    return {**result.as_dict(), **resolution, **_reindex()}
+
+
+def _reindex() -> dict:
+    """Re-embed after an upload, so new rows are reachable by semantic search.
+
+    The same omission as merchant resolution above, one layer out: §6.5's index
+    is a file built from a snapshot of the ledger, so every upload leaves it
+    stale and the rows just added are the ones missing from it. On a fresh
+    database there is no index at all and `semantic_tool` raises
+    FileNotFoundError on the first question that routes to it.
+
+    Failure here is reported, never fatal. The statement is already committed
+    and the rows are queryable by SQL — which is most questions — so refusing
+    the upload over an index would discard good work to protect a cache.
+    """
+    from ..agent.nodes.semantic_tool import build_index
+
+    try:
+        return {"indexed": build_index()}
+    except Exception as exc:
+        return {"indexed": 0, "index_error": f"{type(exc).__name__}: {exc}"}
 
 
 @app.post("/ask", response_model=Answer)
@@ -266,6 +287,8 @@ def ask(payload: Question) -> Answer:
 
     from ..agent.graph import ask as run_agent
 
+    from ..llm import StructuredOutputError
+
     try:
         result = run_agent(payload.question)
     except Exception as exc:
@@ -275,6 +298,15 @@ def ask(payload: Question) -> Answer:
         # retrying — the useful thing is to say so.
         if _is_rate_limit(exc):
             raise HTTPException(503, f"Upstream model is rate limited: {exc}") from exc
+        # Retries are already exhausted by the time this arrives. The raw
+        # exception embeds the whole JSON Schema, so passing it through put a
+        # wall of `{"properties": {...}}` in front of the user where a sentence
+        # belonged. What they can act on is: ask again, or rephrase.
+        if isinstance(exc, StructuredOutputError):
+            raise HTTPException(
+                502, "The model did not return a usable plan for that question. "
+                     "Try asking it a different way."
+            ) from exc
         raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
     return Answer(**result)
 
