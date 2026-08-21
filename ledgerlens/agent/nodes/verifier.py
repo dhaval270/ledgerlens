@@ -40,17 +40,39 @@ MIN_CHECKED_MAGNITUDE = 10.0
 
 _NUMBER = re.compile(r"-?\$?\d[\d,]*\.?\d*%?")
 _ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+_ISO_MONTH = re.compile(r"\b(19|20)\d{2}-(0[1-9]|1[0-2])\b")
 _YEAR = re.compile(r"\b(19|20)\d{2}\b")
+
+# A calendar year is a period, not a quantity — but only when it stands alone.
+# The lookarounds keep a genuine figure that happens to look like a year:
+# "$2,026.00" and "2026.50" are amounts and must still be audited, while the
+# "2026" in "June 2026" must not. Without them, stripping years to fix a false
+# rejection would open a hole four digits wide for a fabricated amount.
+_BARE_YEAR = re.compile(r"(?<![\d.,$])\b(?:19|20)\d{2}\b(?![\d.,])")
 
 
 def extract_numerics(text: str) -> list[float]:
     """Every numeric literal in the draft, currency and separators stripped.
 
-    Dates are removed first. Without that, "2026-03-15" yields 2026, -3 and -15
-    as claims, and every answer mentioning a date fails verification on numbers
-    nobody asserted.
+    Calendar references are removed first, longest form to shortest. Without
+    that, "2026-03-15" yields 2026, -3 and -15 as claims, and every answer
+    mentioning a date fails verification on numbers nobody asserted.
+
+    Bare years are the same bug one level up, and it survived the original fix
+    because it needs a *month* to show itself. Asked "did I spend more in June
+    or July?", the agent correctly returned both sides — and the answer echoed
+    the sub-questions, which read "June 2026" and "July 2026". Four instances of
+    2026 became four unsupported claims and the correct answer was stamped
+    "I couldn't verify this answer, so treat it with caution."
+
+    Years still get checked, just not here: `_dates_in_range` reads them off the
+    original text and tests them against the retrieved window. A year is
+    verified as a period, which is what it is, rather than as a figure that
+    ought to appear in a row, which it never will.
     """
     text = _ISO_DATE.sub(" ", text)
+    text = _ISO_MONTH.sub(" ", text)
+    text = _BARE_YEAR.sub(" ", text)
 
     found = []
     for raw in _NUMBER.findall(text):

@@ -90,3 +90,33 @@ def test_a_query_with_sql_syntax_is_treated_as_text(client):
 
 def test_an_unknown_type_matches_nothing_rather_than_erroring(client):
     assert client.get("/transactions?type=nonsense").json()["total"] == 0
+
+
+# --- upload keeps the semantic index in step ---------------------------------
+
+def test_reindex_reports_how_many_rows_it_embedded(monkeypatch):
+    """An upload that skips reindexing leaves its own rows unsearchable.
+
+    §6.5's index is a file built from a snapshot, so every ingest leaves it
+    stale by exactly the rows just added — and on a fresh database there is no
+    index at all, so the first semantic question raises FileNotFoundError.
+    """
+    from ledgerlens.api import main
+
+    monkeypatch.setattr(
+        "ledgerlens.agent.nodes.semantic_tool.build_index", lambda *a, **k: 42
+    )
+    assert main._reindex() == {"indexed": 42}
+
+
+def test_a_failed_reindex_does_not_discard_the_upload(monkeypatch):
+    """The statement is already committed; refusing it over a cache is worse."""
+    from ledgerlens.api import main
+
+    def boom(*a, **k):
+        raise RuntimeError("no embedding model")
+
+    monkeypatch.setattr("ledgerlens.agent.nodes.semantic_tool.build_index", boom)
+    result = main._reindex()
+    assert result["indexed"] == 0
+    assert "no embedding model" in result["index_error"]

@@ -111,17 +111,18 @@ def _bounds() -> tuple[str, str]:
 
 
 def make_plan(question: str, feedback: str = "") -> Plan:
-    from ...llm import get_structured_llm
+    from ...llm import invoke_structured
 
     date_min, date_max = _bounds()
-    plan = get_structured_llm(Plan).invoke(
+    plan = invoke_structured(
+        Plan,
         PROMPT.format(
             question=question,
             date_min=date_min,
             date_max=date_max,
             max_steps=MAX_STEPS,
             feedback=feedback,
-        )
+        ),
     )
 
     # Trim rather than trust: the schema cannot enforce a maximum length, and an

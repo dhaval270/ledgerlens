@@ -23,6 +23,7 @@ REQUIRED_BUCKETS = {
     "rec": "recurring/anomaly",
     "multi": "multi-hop",
     "sem": "semantic recall",
+    "anom": "anomaly routing",
     "refuse": "unanswerable",
 }
 
@@ -59,7 +60,8 @@ def test_entries_are_well_formed(entries):
             assert e["tools"] == [], f"{e['id']}: a refusal should route to no tool"
         else:
             assert e["expected_value"] is not None
-            assert e["reference_sql"].strip()
+            key = e.get("reference_sql") or e.get("reference_fn")
+            assert key and key.strip(), f"{e['id']}: no answer key"
 
 
 def test_refusals_are_present(entries):
@@ -70,12 +72,40 @@ def test_refusals_are_present(entries):
 @pytest.mark.skipif(not DB_PATH.exists(), reason="ledger.db not built")
 def test_expected_values_still_match_reference_sql(entries):
     """Catches silent drift between the dataset and the answer key."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from evals.build_golden_queries import DETECTORS
+
     drifted = []
     with connect_readonly() as conn:
         for e in entries:
             if e["expect_refusal"]:
                 continue
-            got = conn.execute(e["reference_sql"]).fetchone()[0]
+            # Anomaly keys come from the detector, not from SQL — §6.6's
+            # baseline is procedural and has no scalar-SELECT equivalent.
+            if fn := e.get("reference_fn"):
+                got = DETECTORS[fn](conn)
+            else:
+                got = conn.execute(e["reference_sql"]).fetchone()[0]
             if got != e["expected_value"]:
                 drifted.append((e["id"], e["expected_value"], got))
     assert not drifted, f"expected values drifted: {drifted}"
+
+
+def test_routing_coverage_is_not_token(entries):
+    """The set must exercise more than text-to-SQL.
+
+    Guards a regression that already happened once and went unnoticed for the
+    life of the project: `run_golden_eval.py` called the SQL tool directly, so
+    routing was never scored, and nobody noticed the set had drifted to 41
+    SQL-only queries against 5 that touched anything else. A count here makes
+    the imbalance visible in CI rather than in a post-mortem.
+    """
+    answerable = [e for e in entries if not e["expect_refusal"]]
+    semantic = [e for e in answerable if "semantic" in e["tools"]]
+    anomaly = [e for e in answerable if "anomaly" in e["tools"]]
+
+    assert len(semantic) >= 8, f"only {len(semantic)} semantic queries"
+    assert len(anomaly) >= 6, f"only {len(anomaly)} anomaly queries"

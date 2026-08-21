@@ -1,0 +1,368 @@
+{
+  "n": 18,
+  "answer_accuracy_pct": 38.88888888888889,
+  "median_latency_s": 13.778633117675781,
+  "total_tokens": 39354,
+  "usd_per_query": 0.0014364588888888888,
+  "results": [
+    {
+      "id": "rec-02",
+      "question": "Did any of my subscriptions go up in price?",
+      "expected_tools": [
+        "anomaly",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": false,
+      "verified": false,
+      "no_data": true,
+      "error": null,
+      "seconds": 3.81827712059021,
+      "tokens_in": 1621,
+      "tokens_out": 892
+    },
+    {
+      "id": "rec-05",
+      "question": "Is my travel spending unusual in any month?",
+      "expected_tools": [
+        "anomaly"
+      ],
+      "used_tools": [
+        "anomaly"
+      ],
+      "routed": true,
+      "correct": true,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 9.010458946228027,
+      "tokens_in": 697,
+      "tokens_out": 299
+    },
+    {
+      "id": "sem-01",
+      "question": "What did I spend on anything medical-looking?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": true,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 16.690047025680542,
+      "tokens_in": 1622,
+      "tokens_out": 1271
+    },
+    {
+      "id": "sem-02",
+      "question": "How much went on entertainment and going out?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": true,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 12.447217226028442,
+      "tokens_in": 1619,
+      "tokens_out": 476
+    },
+    {
+      "id": "sem-03",
+      "question": "What did my trips cost me?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": false,
+      "verified": false,
+      "no_data": true,
+      "error": null,
+      "seconds": 10.693455934524536,
+      "tokens_in": 1632,
+      "tokens_out": 540
+    },
+    {
+      "id": "sem-04",
+      "question": "What do I pay for my gym membership?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": false,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 16.500144720077515,
+      "tokens_in": 1616,
+      "tokens_out": 595
+    },
+    {
+      "id": "sem-05",
+      "question": "How much did that hotel stay in Austin cost me?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "semantic",
+        "sql"
+      ],
+      "routed": true,
+      "correct": false,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 19.64980721473694,
+      "tokens_in": 1699,
+      "tokens_out": 671
+    },
+    {
+      "id": "sem-06",
+      "question": "How much have I spent on flights?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": false,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 12.158992767333984,
+      "tokens_in": 1610,
+      "tokens_out": 359
+    },
+    {
+      "id": "sem-07",
+      "question": "What is my creative software subscription costing me?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": false,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 19.68566083908081,
+      "tokens_in": 1616,
+      "tokens_out": 749
+    },
+    {
+      "id": "sem-08",
+      "question": "How much do I pay for internet and TV?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": false,
+      "verified": false,
+      "no_data": true,
+      "error": null,
+      "seconds": 15.565189838409424,
+      "tokens_in": 1618,
+      "tokens_out": 707
+    },
+    {
+      "id": "sem-09",
+      "question": "What did that exercise bike cost?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "semantic",
+        "sql"
+      ],
+      "routed": true,
+      "correct": false,
+      "verified": false,
+      "no_data": true,
+      "error": null,
+      "seconds": 15.11004900932312,
+      "tokens_in": 1691,
+      "tokens_out": 733
+    },
+    {
+      "id": "sem-10",
+      "question": "How much have I lost to cash machine charges?",
+      "expected_tools": [
+        "semantic",
+        "sql"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": true,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 18.789721965789795,
+      "tokens_in": 1616,
+      "tokens_out": 543
+    },
+    {
+      "id": "anom-01",
+      "question": "Which category had the most unusual month?",
+      "expected_tools": [
+        "anomaly"
+      ],
+      "used_tools": [
+        "anomaly"
+      ],
+      "routed": true,
+      "correct": true,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 9.366037845611572,
+      "tokens_in": 1418,
+      "tokens_out": 1020
+    },
+    {
+      "id": "anom-02",
+      "question": "In which month did my travel spending look abnormal?",
+      "expected_tools": [
+        "anomaly"
+      ],
+      "used_tools": [
+        "anomaly"
+      ],
+      "routed": true,
+      "correct": true,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 8.350449323654175,
+      "tokens_in": 698,
+      "tokens_out": 269
+    },
+    {
+      "id": "anom-03",
+      "question": "How much did I actually spend in that abnormal travel month?",
+      "expected_tools": [
+        "anomaly"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": false,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 19.69768500328064,
+      "tokens_in": 1624,
+      "tokens_out": 1386
+    },
+    {
+      "id": "anom-04",
+      "question": "What is my normal monthly travel spend, ignoring the spike?",
+      "expected_tools": [
+        "anomaly"
+      ],
+      "used_tools": [
+        "sql"
+      ],
+      "routed": false,
+      "correct": false,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 18.70145583152771,
+      "tokens_in": 2375,
+      "tokens_out": 2053
+    },
+    {
+      "id": "anom-05",
+      "question": "Did my spending drop unusually low in any category?",
+      "expected_tools": [
+        "anomaly"
+      ],
+      "used_tools": [
+        "anomaly"
+      ],
+      "routed": true,
+      "correct": true,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 9.016592025756836,
+      "tokens_in": 698,
+      "tokens_out": 238
+    },
+    {
+      "id": "anom-06",
+      "question": "How many category-months look statistically unusual?",
+      "expected_tools": [
+        "anomaly"
+      ],
+      "used_tools": [
+        "anomaly"
+      ],
+      "routed": true,
+      "correct": false,
+      "verified": true,
+      "no_data": false,
+      "error": null,
+      "seconds": 7.694284915924072,
+      "tokens_in": 697,
+      "tokens_out": 386
+    }
+  ],
+  "routing_accuracy_pct": 38.88888888888889,
+  "per_tool": {
+    "anomaly": {
+      "n": 8,
+      "routed": 5,
+      "correct": 4
+    },
+    "sql": {
+      "n": 11,
+      "routed": 2,
+      "correct": 3
+    },
+    "semantic": {
+      "n": 10,
+      "routed": 2,
+      "correct": 3
+    }
+  },
+  "verified_and_correct": 7,
+  "verified_but_wrong": 7,
+  "correct_but_unverified": 0,
+  "subset": "routing"
+}

@@ -192,10 +192,11 @@ def _learn(conn: sqlite3.Connection, merchant_id: int | None, category_id: int) 
 
 
 def _llm_categorize(merchant: str, descriptor: str) -> CategoryChoice:
-    from ..llm import get_structured_llm
+    from ..llm import invoke_structured
 
-    return get_structured_llm(CategoryChoice).invoke(
-        PROMPT.format(merchant=merchant, descriptor=descriptor, threshold=CONFIDENCE_THRESHOLD)
+    return invoke_structured(
+        CategoryChoice,
+        PROMPT.format(merchant=merchant, descriptor=descriptor, threshold=CONFIDENCE_THRESHOLD),
     )
 
 
