@@ -1,0 +1,39 @@
+# Packaging and tool configuration.
+#
+# `requirements.txt` stays the pinned source of truth — §2 pins LangGraph
+# because its API moves, and a floating install is how a green suite starts
+# failing without a commit. This file makes the project importable without a
+# sys.path hack and gives pytest somewhere to live; it does not re-declare the
+# pins in a second place that can drift from the first.
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledgerlens"
+version = "0.1.0"
+description = "An agentic personal expense analyst with verified, traceable answers"
+readme = "README.md"
+requires-python = ">=3.12"
+dynamic = ["dependencies"]
+
+[project.scripts]
+ledgerlens-ingest = "ledgerlens.ingest.__main__:main"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+include = ["ledgerlens*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = [
+    # Starlette's TestClient nags about httpx2 the first time it is imported.
+    # Not this project's deprecation, and it is the only warning the suite
+    # emits — leaving it in place means the count is never zero, so a real
+    # warning appearing has nothing to stand out against.
+    "ignore:Using `httpx` with `starlette.testclient`",
+]

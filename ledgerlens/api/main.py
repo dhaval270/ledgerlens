@@ -33,6 +33,9 @@ app = FastAPI(title="LedgerLens", version="0.1.0")
 
 class Question(BaseModel):
     question: str
+    # Omit it and the question stands alone. Send back the id from a previous
+    # answer and the planner can resolve "and in May?" against that turn.
+    thread_id: str | None = None
 
 
 class Answer(BaseModel):
@@ -43,6 +46,7 @@ class Answer(BaseModel):
     plan: list[dict]
     tool_results: list[dict]
     answerable: bool
+    thread_id: str | None = None
 
 
 class ProposalRequest(BaseModel):
@@ -68,6 +72,7 @@ def root() -> dict:
             "POST /ingest": "upload a statement (.csv/.pdf)",
             "POST /ask": "ask a question about the ledger",
             "GET /digest/{period}": "proactive findings for a YYYY-MM month",
+            "DELETE /ask/{thread_id}": "forget one conversation's history",
             "POST /approvals": "propose a change — returns a diff, writes nothing",
             "GET /approvals/{thread_id}": "the diff a paused approval is waiting on",
             "POST /approvals/{thread_id}/decide": "approve or reject — the only path to a write",
@@ -286,11 +291,15 @@ def ask(payload: Question) -> Answer:
     _require_ledger()
 
     from ..agent.graph import ask as run_agent
-
+    from ..agent.memory import new_thread_id
     from ..llm import StructuredOutputError
 
+    # Minted server-side rather than accepted blindly on first use, so a thread
+    # is something this process handed out and not any string a caller invents.
+    thread_id = payload.thread_id or new_thread_id()
+
     try:
-        result = run_agent(payload.question)
+        result = run_agent(payload.question, thread_id=thread_id)
     except Exception as exc:
         # The SQL tool absorbs throttling behind its own retry budget, but a 429
         # in the planner has nowhere to go and took the whole graph down as an
@@ -314,6 +323,15 @@ def ask(payload: Question) -> Answer:
 def _is_rate_limit(exc: Exception) -> bool:
     text = str(exc)
     return "429" in text or "rate limit" in text.lower()
+
+
+@app.delete("/ask/{thread_id}")
+def forget_thread(thread_id: str) -> dict:
+    """Drop one conversation. §10: history is the user's, including deleting it."""
+    from ..agent.memory import forget
+
+    forget(thread_id)
+    return {"thread_id": thread_id, "status": "forgotten"}
 
 
 @app.get("/digest/{period}")

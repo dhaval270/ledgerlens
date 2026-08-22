@@ -24,6 +24,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
+
 from ledgerlens.agent.nodes.verifier import verify
 from ledgerlens.db import DB_PATH, connect_readonly
 
@@ -65,10 +67,24 @@ def main() -> int:
     caught = attempted = 0
     false_rejections = []
 
+    from build_golden_queries import DETECTORS
+
     with connect_readonly() as conn:
         for entry in numeric:
-            rows = [dict(r) for r in conn.execute(entry["reference_sql"]).fetchall()]
-            tool_results = [{"tool": "sql", "query": entry["reference_sql"],
+            # Anomaly questions carry `reference_fn` rather than `reference_sql`:
+            # SQLite has no STDDEV, so their answer key is the detector itself.
+            # This loop assumed every entry had SQL and started raising KeyError
+            # the day those questions were added — the suite behind the README's
+            # verifier row has not been runnable since.
+            if sql := entry.get("reference_sql"):
+                rows = [dict(r) for r in conn.execute(sql).fetchall()]
+                query = sql
+            else:
+                value = DETECTORS[entry["reference_fn"]](conn)
+                rows = [{"value": value}]
+                query = f"{entry['reference_fn']}()  # detector, not SQL"
+
+            tool_results = [{"tool": "sql", "query": query,
                              "rows": rows, "error": None}]
 
             # 1. the honest answer must pass

@@ -109,3 +109,43 @@ def test_routing_coverage_is_not_token(entries):
 
     assert len(semantic) >= 8, f"only {len(semantic)} semantic queries"
     assert len(anomaly) >= 6, f"only {len(anomaly)} anomaly queries"
+
+
+# --- the evals must score the benchmark, not whatever .env points at ---------
+
+def test_every_eval_pins_the_benchmark_ledger():
+    """The failure this catches is silent and scores a number anyway.
+
+    `DB_PATH` resolves `LEDGERLENS_DB` at import time, and `.env` sets it for
+    whoever is using the app on their own statements. Run from that shell, the
+    evals scored the golden set against a personal ledger — sixteen rows, no
+    anomalies. `run_verifier_eval.py` crashed with `IndexError`, which was the
+    lucky outcome: the golden queries would have returned None and been read as
+    regressions. conftest.py has pinned the suite this way from the start; the
+    evals never did.
+    """
+    import pathlib
+
+    evals = pathlib.Path(__file__).resolve().parent.parent / "evals"
+    for script in sorted(evals.glob("run_*.py")):
+        source = script.read_text()
+        pin = source.find("_benchmark")
+        first_import = source.find("from ledgerlens")
+        if first_import == -1:
+            first_import = source.find("import ledgerlens")
+        assert pin != -1, f"{script.name} does not pin the benchmark ledger"
+        if first_import != -1:
+            assert pin < first_import, f"{script.name} pins too late to matter"
+
+
+def test_the_pin_wins_over_the_environment(monkeypatch):
+    """It overrides rather than defaults. "Unset it first" is not a thing
+    anyone remembers to do."""
+    import importlib
+    import os
+    import sys
+
+    sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
+    monkeypatch.setenv("LEDGERLENS_DB", "somewhere-else.db")
+    module = importlib.reload(importlib.import_module("evals._benchmark"))
+    assert os.environ["LEDGERLENS_DB"] == str(module.BENCHMARK_DB)

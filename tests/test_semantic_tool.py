@@ -115,3 +115,102 @@ def test_semantic_only_plan_still_reaches_sql():
     no_data.
     """
     assert route_after_semantic({"plan": [{"tool": "semantic"}]}) == "sql_tool"
+
+
+# --- a plan that names two tools must run two tools --------------------------
+
+def _state(plan, tool_results=None):
+    return {"question": "q", "plan": plan, "tool_results": tool_results or []}
+
+
+def test_anomaly_hands_off_to_sql_when_the_plan_asked_for_both():
+    """rec-02 planned correctly and ran short.
+
+    "Did any of my subscriptions go up in price?" plans anomaly (which charge
+    moved) plus sql (by how much). The graph sent every anomaly result straight
+    to the answer node, so the sql step was dropped without a word — the plan
+    said two tools and `tool_results` held one.
+    """
+    from ledgerlens.agent.graph import route_after_anomaly
+
+    plan = [{"tool": "anomaly", "sub_question": "which subscription rose"},
+            {"tool": "sql", "sub_question": "by how much"}]
+    assert route_after_anomaly(_state(plan)) == "sql_tool"
+
+
+def test_an_anomaly_only_plan_still_stops_at_the_answer():
+    """Unlike semantic, the detectors return real rows, so an extra SQL call
+    would cost a round trip and change nothing."""
+    from ledgerlens.agent.graph import route_after_anomaly
+
+    assert route_after_anomaly(_state([{"tool": "anomaly"}])) == "answer"
+
+
+def test_retrieved_ids_reach_sql_even_through_an_anomaly_step():
+    """The semantic edge promises retrieval always reaches SQL. A plan naming
+    semantic and anomaly but no sql would otherwise break that promise on a
+    path the semantic test never visits."""
+    from ledgerlens.agent.graph import route_after_anomaly
+
+    state = _state([{"tool": "semantic"}, {"tool": "anomaly"}],
+                   [{"tool": "semantic", "transaction_ids": [1, 2], "rows": []}])
+    assert route_after_anomaly(state) == "sql_tool"
+
+
+def test_semantic_goes_through_anomaly_when_both_are_planned():
+    from ledgerlens.agent.graph import route_after_semantic
+
+    plan = [{"tool": "semantic"}, {"tool": "anomaly"}]
+    assert route_after_semantic(_state(plan)) == "anomaly_tool"
+    assert route_after_semantic(_state([{"tool": "semantic"}])) == "sql_tool"
+
+
+# --- how a retrieval-only result is described --------------------------------
+
+def _semantic(ids):
+    return {"tool": "semantic", "sub_question": "gym membership",
+            "transaction_ids": ids, "rows": [], "error": None}
+
+
+def _sql(value):
+    return {"tool": "sql", "sub_question": "total", "query": "SELECT 1",
+            "rows": [{"total": value}], "error": None}
+
+
+def test_a_successful_retrieval_is_not_described_as_finding_nothing():
+    """§6.5 forbids this tool from carrying a figure, so its result is always
+    empty — and the generic empty-result wording then accused it of failure.
+    The answer to a correctly answered question opened with "no matching
+    transactions" and went on to give the right total."""
+    from ledgerlens.agent.graph import draft_answer
+
+    state = draft_answer({"question": "gym?", "answerable": True,
+                          "tool_results": [_semantic([1, 2, 3]), _sql(-324.87)]})
+    assert "no matching transactions" not in state["draft_answer"]
+    assert "-324.87" in state["draft_answer"]
+
+
+def test_retrieval_that_matched_nothing_still_says_so():
+    from ledgerlens.agent.graph import draft_answer
+
+    state = draft_answer({"question": "q", "answerable": True,
+                          "tool_results": [_semantic([])]})
+    assert "matched nothing" in state["draft_answer"]
+
+
+def test_an_empty_semantic_result_does_not_make_a_full_answer_no_data():
+    """`no_data` drives the badge beside the answer. Counting a tool that never
+    returns rows would flag every retrieval-backed answer as empty."""
+    from ledgerlens.agent.graph import draft_answer
+
+    state = draft_answer({"question": "q", "answerable": True,
+                          "tool_results": [_semantic([1, 2]), _sql(-324.87)]})
+    assert not state["no_data"]
+
+
+def test_a_genuinely_empty_sql_result_is_still_no_data():
+    from ledgerlens.agent.graph import draft_answer
+
+    state = draft_answer({"question": "q", "answerable": True,
+                          "tool_results": [_semantic([1]), _sql(None)]})
+    assert state["no_data"]

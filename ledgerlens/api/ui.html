@@ -107,6 +107,7 @@
 <nav>
   <button data-tab="ask" aria-selected="true">Ask</button>
   <button data-tab="data" aria-selected="false">Data</button>
+  <button data-tab="review" aria-selected="false">Review</button>
   <button data-tab="upload" aria-selected="false">Upload</button>
 </nav>
 
@@ -125,6 +126,9 @@
         <span class="note">Try:</span>
         <button class="mini sample">How much did I spend on groceries in March 2026?</button>
         <button class="mini sample">What is my credit score?</button>
+        <span style="flex:1"></span>
+        <span class="note" id="threadNote"></span>
+        <button class="mini" id="newChat" hidden>New conversation</button>
       </div>
     </div>
     <div id="askOut"></div>
@@ -177,6 +181,52 @@
     <div id="catTable"></div>
   </section>
 
+  <!-- ── Review ──────────────────────────────────────────────────────────── -->
+  <section id="review" hidden>
+    <div class="card">
+      <h3>Propose a change</h3>
+      <p class="note">
+        Proposing writes nothing. It reads the current state, shows you exactly what
+        would change, and stops there — the graph is paused mid-run at §8's interrupt.
+        Approving is the only path from here to a write.
+      </p>
+      <div class="row" style="margin-top:12px; align-items:flex-end">
+        <div>
+          <label for="action">Action</label>
+          <select id="action">
+            <option value="recategorize">Recategorize a merchant</option>
+            <option value="merge_merchants">Merge two merchants</option>
+            <option value="set_budget">Set a category budget</option>
+          </select>
+        </div>
+        <div id="params" class="row" style="align-items:flex-end"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="go" id="proposeBtn">Propose</button>
+        <span class="note" id="proposeNote"></span>
+      </div>
+    </div>
+
+    <div id="pending"></div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:flex-end">
+        <div>
+          <h3>Findings</h3>
+          <p class="note" style="margin:0">
+            §7's detectors, run over a month without being asked. Dismissing one is
+            itself an approved write.
+          </p>
+        </div>
+        <div>
+          <label for="period">Month</label>
+          <select id="period"></select>
+        </div>
+      </div>
+      <div id="findings" style="margin-top:12px"></div>
+    </div>
+  </section>
+
   <!-- ── Upload ──────────────────────────────────────────────────────────── -->
   <section id="upload" hidden>
     <div class="card">
@@ -219,6 +269,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   // Loaded on open rather than at boot: 832 rows is not worth fetching for
   // someone who only wanted to ask a question.
   if (b.dataset.tab === 'data') refreshData();
+  if (b.dataset.tab === 'review') refreshReview();
 });
 
 /* ── health + metadata ────────────────────────────────────────────────── */
@@ -236,9 +287,31 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 })();
 
 /* ── ask ──────────────────────────────────────────────────────────────── */
+// Follow-ups need the thread id from the previous answer. It is held in memory
+// only: reloading the page starts a new conversation, which matches where the
+// history actually lives (agent/memory.py — in process, gone on restart).
+let thread = null;
+let turns = 0;
+
+function showThread() {
+  $('#newChat').hidden = turns === 0;
+  $('#threadNote').textContent = turns === 0 ? ''
+    : `${turns} turn${turns > 1 ? 's' : ''} in context — follow-ups like "and in May?" work`;
+}
+
+$('#newChat').onclick = async () => {
+  const dropped = thread;
+  thread = null; turns = 0; showThread();
+  $('#askOut').innerHTML = '';
+  // Told to forget rather than merely dropped: the server is holding the
+  // questions, and abandoning a reference is not the same as deleting them.
+  if (dropped) { try { await api(`/ask/${encodeURIComponent(dropped)}`, { method: 'DELETE' }); } catch {} }
+};
+
 document.querySelectorAll('.sample').forEach(b => b.onclick = () => {
   $('#q').value = b.textContent; askNow();
 });
+showThread();
 $('#askBtn').onclick = askNow;
 $('#q').addEventListener('keydown', e => {
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) askNow();
@@ -255,8 +328,11 @@ async function askNow() {
     const r = await api('/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question })
+      body: JSON.stringify({ question, thread_id: thread })
     });
+    thread = r.thread_id ?? thread;
+    turns += 1;
+    showThread();
     $('#askOut').innerHTML = renderAnswer(r, (performance.now() - started) / 1000);
   } catch (e) {
     $('#askOut').innerHTML = `<div class="card"><div class="err">${esc(e.message)}</div></div>`;
@@ -380,6 +456,180 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
 }
 
+/* ── review: propose → diff → approve ─────────────────────────────────── */
+// The half of §8 that had no way in. The endpoints, the interrupt, the staleness
+// check and /meta's dropdown data all existed; the README's central claim —
+// every state change waits on an explicit human approval — was reachable only by
+// hand-writing curl. A safety property nobody can see is a safety property
+// nobody believes.
+
+let meta = null;              // categories + merchants + periods, loaded once
+let openThread = null;        // the approval currently paused, if any
+
+async function refreshReview() {
+  if (!meta) {
+    try {
+      meta = await api('/meta');
+    } catch (e) {
+      $('#params').innerHTML = `<div class="err">${esc(e.message)}</div>`;
+      return;
+    }
+    $('#period').innerHTML = meta.periods.map(p => `<option>${esc(p)}</option>`).join('');
+    renderParams();
+  }
+  loadFindings();
+}
+
+const merchantOptions = () => meta.merchants
+  .map(m => `<option value="${m.id}">${esc(m.name)}${m.category ? ' · ' + esc(m.category) : ''}` +
+            ` (${m.transactions})</option>`).join('');
+const categoryOptions = () => meta.categories.map(c => `<option>${esc(c)}</option>`).join('');
+
+function renderParams() {
+  const forms = {
+    recategorize: `
+      <div><label for="p_merchant">Merchant</label>
+        <select id="p_merchant">${merchantOptions()}</select></div>
+      <div><label for="p_category">New category</label>
+        <select id="p_category">${categoryOptions()}</select></div>`,
+    merge_merchants: `
+      <div><label for="p_source">Fold this one away</label>
+        <select id="p_source">${merchantOptions()}</select></div>
+      <div><label for="p_target">Into this one</label>
+        <select id="p_target">${merchantOptions()}</select></div>`,
+    set_budget: `
+      <div><label for="p_budget_cat">Category</label>
+        <select id="p_budget_cat">${categoryOptions()}</select></div>
+      <div><label for="p_limit">Monthly limit</label>
+        <input id="p_limit" type="number" min="1" step="10" value="400" style="width:120px"></div>`,
+  };
+  $('#params').innerHTML = forms[$('#action').value] ?? '';
+}
+
+function collectParams() {
+  switch ($('#action').value) {
+    case 'recategorize':
+      return { merchant_id: Number($('#p_merchant').value), category: $('#p_category').value };
+    case 'merge_merchants':
+      return { source_id: Number($('#p_source').value), target_id: Number($('#p_target').value) };
+    case 'set_budget':
+      return { category: $('#p_budget_cat').value, limit_amount: Number($('#p_limit').value) };
+  }
+  return {};
+}
+
+$('#action').onchange = renderParams;
+
+$('#proposeBtn').onclick = async () => {
+  $('#proposeBtn').disabled = true;
+  $('#proposeNote').textContent = 'reading current state…';
+  $('#pending').innerHTML = '';
+  try {
+    const r = await api('/approvals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: $('#action').value, params: collectParams() })
+    });
+    openThread = r.thread_id;
+    $('#pending').innerHTML = renderProposal(r);
+    wireDecision();
+  } catch (e) {
+    // 422 here is the good case: preview refused a change that could not be
+    // applied, in front of the user, before anyone approved anything.
+    $('#pending').innerHTML = `<div class="card"><div class="err">${esc(e.message)}</div></div>`;
+  } finally {
+    $('#proposeBtn').disabled = false;
+    $('#proposeNote').textContent = '';
+  }
+};
+
+function renderProposal(r) {
+  const p = r.proposal;
+  const side = (k, obj) => `<div><div class="k">${k}</div>` +
+    Object.entries(obj).map(([key, v]) =>
+      `<div>${esc(key)}: <b>${v === null ? '—' : esc(v)}</b></div>`).join('') + `</div>`;
+  return `<div class="card">
+    <div class="row"><span class="badge warn">awaiting your approval</span>
+      <span class="note mono">${esc(r.thread_id)}</span></div>
+    <div class="answer">${esc(p.summary)}</div>
+    <div class="diff">${side('before', p.before)}${side('after', p.after)}</div>
+    <p class="note">
+      ${p.affected_rows} transaction(s) would be rewritten. The diff is fingerprinted:
+      if the ledger changes before you decide, applying it is refused rather than
+      applied to something you never saw.
+    </p>
+    <div class="row" style="margin-top:6px">
+      <button class="mini approve" id="approveBtn">Approve and apply</button>
+      <button class="mini reject" id="rejectBtn">Reject</button>
+      <span class="note" id="decideNote"></span>
+    </div>
+  </div>`;
+}
+
+function wireDecision() {
+  $('#approveBtn').onclick = () => decide(true);
+  $('#rejectBtn').onclick = () => decide(false);
+}
+
+async function decide(approved) {
+  $('#approveBtn').disabled = $('#rejectBtn').disabled = true;
+  $('#decideNote').textContent = approved ? 'applying…' : 'cancelling…';
+  try {
+    const r = await api(`/approvals/${encodeURIComponent(openThread)}/decide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approved, note: '' })
+    });
+    const applied = r.status === 'applied';
+    $('#pending').innerHTML = `<div class="card">
+      <div class="row"><span class="badge ${applied ? 'ok' : ''}">${esc(r.status)}</span></div>
+      <div class="answer">${esc(r.proposal?.summary ?? '')}</div>
+      ${applied && r.result ? `<pre>${esc(JSON.stringify(r.result, null, 1))}</pre>`
+        : `<p class="note">Nothing was written. The thread ended at cancel.</p>`}
+    </div>`;
+    openThread = null;
+    if (applied) { meta = null; await refreshReview(); }
+  } catch (e) {
+    // A 409 is the staleness guard firing, and it deserves its own sentence:
+    // the request was valid when it was made and the ledger moved underneath it.
+    $('#decideNote').innerHTML = `<span class="err">${esc(e.message)}</span>`;
+    $('#approveBtn').disabled = $('#rejectBtn').disabled = false;
+  }
+}
+
+$('#period').onchange = loadFindings;
+
+async function loadFindings() {
+  const period = $('#period').value;
+  if (!period) { $('#findings').innerHTML = `<div class="note">No months in the ledger yet.</div>`; return; }
+  $('#findings').innerHTML = `<div class="note">running detectors over ${esc(period)}…</div>`;
+  try {
+    // narrate=false: the findings are the product and the prose is a view, so the
+    // list should not wait on an LLM call to appear.
+    const d = await api(`/digest/${encodeURIComponent(period)}?narrate=false`);
+    $('#findings').innerHTML = d.findings.length ? d.findings.map(f => `
+      <div class="card" style="margin-bottom:8px">
+        <div class="row"><span class="badge">${esc(f.kind)}</span>
+          <span class="note">${esc(f.period)}</span>
+          <span style="flex:1"></span>
+          <button class="mini reject" data-dismiss="${f.id}">Dismiss</button></div>
+        <pre>${esc(JSON.stringify(f, null, 1))}</pre>
+      </div>`).join('') : `<div class="note">Nothing notable in ${esc(period)}.</div>`;
+    $('#findings').querySelectorAll('[data-dismiss]').forEach(b => b.onclick = async () => {
+      const r = await api('/approvals', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'dismiss_insight', params: { insight_id: Number(b.dataset.dismiss) } })
+      });
+      openThread = r.thread_id;
+      $('#pending').innerHTML = renderProposal(r);
+      wireDecision();
+      $('#pending').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  } catch (e) {
+    $('#findings').innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
+}
+
 /* ── upload ───────────────────────────────────────────────────────────── */
 $('#uploadBtn').onclick = async () => {
   const file = $('#file').files[0];
@@ -402,6 +652,7 @@ $('#uploadBtn').onclick = async () => {
     // The complaint this answers: an upload used to report a count and nothing
     // else, leaving no way to see what actually landed.
     await loadStats();
+    meta = null;                    // new merchants; the approval forms are stale
     $('#txSource').value = r.source_file;
     $('#txQ').value = ''; $('#txType').value = '';
     txOffset = 0;
