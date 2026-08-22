@@ -41,6 +41,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # evals/ is not a package
 
+from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
+
 from langchain_core.callbacks import get_usage_metadata_callback
 
 from evals.run_golden_eval import USD_PER_MTOK_IN, USD_PER_MTOK_OUT, _tokens, matches
@@ -67,6 +69,38 @@ def tools_used(outcome: dict) -> set[str]:
     Scoring the plan would credit the intention.
     """
     return {r.get("tool") for r in outcome.get("tool_results", []) if r.get("tool")}
+
+
+def returned_values(outcome: dict) -> list:
+    """Every cell any tool returned, and the SQL that produced them.
+
+    A harness that prints FAIL without recording what came back cannot tell a
+    wrong query from a flaky one. sem-04 was scored wrong on one run and right
+    on the next with no code change between; re-running by hand was the only
+    way to find out that the query had been correct all along. That is a gap in
+    the measurement, not in the agent.
+    """
+    seen = []
+    for result in outcome.get("tool_results", []):
+        for row in result.get("rows") or []:
+            seen.extend(row.values())
+    return seen
+
+
+def is_rate_limited(error: str | None) -> bool:
+    """A 429 is a run that did not happen, not an answer that was wrong.
+
+    Scored as an ordinary failure it is indistinguishable from a bad plan, and
+    it lands at the *end* of a run — where the daily token budget runs out —
+    so it silently pushes every headline down by however many queries were left.
+    One run here reported 27.8% routing accuracy over 18 queries of which the
+    last 5 never reached the model at all.
+    """
+    return bool(error) and ("429" in error or "RateLimitError" in error)
+
+
+def queries_run(outcome: dict) -> list[str]:
+    return [r["query"] for r in outcome.get("tool_results", []) if r.get("query")]
 
 
 def value_found(outcome: dict, expected) -> bool:
@@ -103,6 +137,7 @@ def run(entries: list[dict], refusals: bool = False) -> dict:
             ok = failed is None and not outcome.get("answerable", True)
             record = {"id": entry["id"], "question": entry["question"],
                       "refused": ok, "correct": ok, "error": failed,
+                      "rate_limited": is_rate_limited(failed),
                       "reason": (outcome.get("verdict") or {}).get("reason", "")}
             print(("  PASS " if ok else "  FAIL ") +
                   f"{entry['id']:9} refused={ok}", flush=True)
@@ -119,9 +154,13 @@ def run(entries: list[dict], refusals: bool = False) -> dict:
                 # change the answer is a cost problem, not a routing error.
                 "routed": bool(expected) and expected <= used,
                 "correct": value_found(outcome, entry["expected_value"]),
+                "expected_value": entry["expected_value"],
+                "returned_values": returned_values(outcome),
+                "queries": queries_run(outcome),
                 "verified": bool(outcome.get("verified")),
                 "no_data": bool(outcome.get("no_data")),
                 "error": failed,
+                "rate_limited": is_rate_limited(failed),
             }
             print(f"  {'PASS' if record['correct'] else 'FAIL'} "
                   f"{'ROUTE' if record['routed'] else '  X  '} "
@@ -132,26 +171,38 @@ def run(entries: list[dict], refusals: bool = False) -> dict:
         record.update(_tokens(usage.usage_metadata))
         results.append(record)
 
-    n = len(results)
+    # Scored over the queries that actually reached the model. A 429 is missing
+    # data, and averaging it in as a zero reports a quota problem as a quality
+    # problem — in the wrong direction, and without saying so.
+    throttled = [r for r in results if r.get("rate_limited")]
+    scored = [r for r in results if not r.get("rate_limited")]
+    n = len(scored)
+    if not n:
+        return {"n": 0, "rate_limited": len(throttled), "results": results,
+                "complete": False}
+
     report = {
         "n": n,
-        "answer_accuracy_pct": sum(r["correct"] for r in results) / n * 100,
-        "median_latency_s": st.median(r["seconds"] for r in results),
-        "total_tokens": sum(r["tokens_in"] + r["tokens_out"] for r in results),
+        "attempted": len(results),
+        "rate_limited": len(throttled),
+        "complete": not throttled,
+        "answer_accuracy_pct": sum(r["correct"] for r in scored) / n * 100,
+        "median_latency_s": st.median(r["seconds"] for r in scored),
+        "total_tokens": sum(r["tokens_in"] + r["tokens_out"] for r in scored),
         "usd_per_query": (
-            st.mean([r["tokens_in"] for r in results]) / 1e6 * USD_PER_MTOK_IN
-            + st.mean([r["tokens_out"] for r in results]) / 1e6 * USD_PER_MTOK_OUT
+            st.mean([r["tokens_in"] for r in scored]) / 1e6 * USD_PER_MTOK_IN
+            + st.mean([r["tokens_out"] for r in scored]) / 1e6 * USD_PER_MTOK_OUT
         ),
         "results": results,
     }
 
     if not refusals:
-        report["routing_accuracy_pct"] = sum(r["routed"] for r in results) / n * 100
-        report["per_tool"] = _per_tool(results)
+        report["routing_accuracy_pct"] = sum(r["routed"] for r in scored) / n * 100
+        report["per_tool"] = _per_tool(scored)
         # The cross-tab: verification is only meaningful next to correctness.
-        report["verified_and_correct"] = sum(r["verified"] and r["correct"] for r in results)
-        report["verified_but_wrong"] = sum(r["verified"] and not r["correct"] for r in results)
-        report["correct_but_unverified"] = sum(r["correct"] and not r["verified"] for r in results)
+        report["verified_and_correct"] = sum(r["verified"] and r["correct"] for r in scored)
+        report["verified_but_wrong"] = sum(r["verified"] and not r["correct"] for r in scored)
+        report["correct_but_unverified"] = sum(r["correct"] and not r["verified"] for r in scored)
 
     return report
 
@@ -186,7 +237,16 @@ def main() -> int:
     report["subset"] = args.subset
     args.out.write_text(json.dumps(report, indent=2, default=str) + "\n")
 
+    if not report["n"]:
+        print(f"\nEvery query was rate limited ({report['rate_limited']}/"
+              f"{len(entries)}). Nothing was measured.", file=sys.stderr)
+        return 1
+
     print("\n=== routing metrics ===")
+    if report["rate_limited"]:
+        print(f"  !! INCOMPLETE RUN — {report['rate_limited']} of "
+              f"{report['attempted']} queries never reached the model (429).")
+        print("     Scored over the rest. Do not compare this against a full run.")
     print(f"  answer accuracy           {report['answer_accuracy_pct']:.1f}%  (n={report['n']})")
     if "routing_accuracy_pct" in report:
         print(f"  routing accuracy          {report['routing_accuracy_pct']:.1f}%")
@@ -209,6 +269,10 @@ def main() -> int:
             elif "used_tools" in r:
                 print(f"    wanted {r['expected_tools']}, ran {r['used_tools']}, "
                       f"verified={r['verified']} no_data={r['no_data']}")
+                print(f"    expected {r['expected_value']!r}, "
+                      f"got {r['returned_values']!r}")
+                for query in r["queries"]:
+                    print(f"    sql: {query}")
     return 0
 
 

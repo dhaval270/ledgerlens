@@ -23,6 +23,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # evals/ is not a package
 
+from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
+
 from ledgerlens.db import DB_PATH, connect, init_db
 from ledgerlens.ingest import ingest_file
 from ledgerlens.ingest.categorize import categorize

@@ -1,0 +1,57 @@
+# Runs the suite on every push and pull request.
+#
+# What CI can and cannot check here is worth stating plainly. `ledger.db` is a
+# build artifact and gitignored, and rebuilding it needs a GROQ_API_KEY —
+# tier-3 merchant resolution calls a model, and it does not resolve to the same
+# canonical names twice (see evals/build_golden_queries.py). So CI runs the
+# 205 tests that need neither a ledger nor a network, and the 15 that read the
+# synthetic benchmark skip. Every eval in evals/ is likewise a local, paid,
+# non-deterministic run; none of them gate a merge.
+#
+# No secret is configured on purpose. A workflow holding a live inference key
+# is a workflow any fork's pull request can try to spend.
+
+name: tests
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run the suite
+        run: pytest --junit-xml=report.xml
+
+      - name: Refuse a vacuously green run
+        # The failure this guards against is the one this project has already
+        # had once: a harness that reported a healthy number while exercising
+        # nothing. Every DB-backed test skips without ledger.db, so a config
+        # slip that made the rest skip too would turn CI green and silent.
+        run: |
+          python - <<'PY'
+          import sys, xml.etree.ElementTree as ET
+
+          suite = ET.parse("report.xml").getroot().find("testsuite")
+          total = int(suite.get("tests"))
+          skipped = int(suite.get("skipped"))
+          ran = total - skipped
+          print(f"{ran} ran, {skipped} skipped, {total} collected")
+          if ran < 220:
+              sys.exit(f"only {ran} tests actually ran — the suite is not being exercised")
+          PY

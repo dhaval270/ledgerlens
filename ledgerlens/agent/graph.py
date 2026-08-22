@@ -1,7 +1,8 @@
 """StateGraph wiring — §6.2.
 
     question → planner
-    planner  → [sql_tool | semantic_tool | anomaly_tool]   (conditional, fan-out)
+    planner  → semantic_tool → anomaly_tool → sql_tool → answer
+               (each hop conditional; a plan naming one tool runs one tool)
     tools    → verifier
     verifier → planner  (on fail, replan_count < 2)
     verifier → answer   (on pass)
@@ -49,6 +50,14 @@ def route_after_planner(state: AgentState) -> str:
     return "answer"
 
 
+def _planned(state: AgentState, tool: str) -> bool:
+    return any(step.get("tool") == tool for step in state.get("plan") or [])
+
+
+def _has_retrieved_ids(state: AgentState) -> bool:
+    return any(r.get("transaction_ids") for r in state.get("tool_results") or [])
+
+
 def route_after_semantic(state: AgentState) -> str:
     """Always hand retrieved IDs to SQL. Retrieval alone cannot answer anything.
 
@@ -66,8 +75,31 @@ def route_after_semantic(state: AgentState) -> str:
     Routing unconditionally is safe because `sql_tool` falls back to the
     original question when the plan named no SQL step, and scopes itself to the
     retrieved IDs either way.
+
+    Anomaly comes first when the plan asks for both, so a plan naming all three
+    tools still runs all three.
     """
-    return "sql_tool"
+    return "anomaly_tool" if _planned(state, "anomaly") else "sql_tool"
+
+
+def route_after_anomaly(state: AgentState) -> str:
+    """Continue to SQL when the plan asked for it, or when IDs are waiting.
+
+    The graph used to send every anomaly result straight to the answer node, so
+    a plan naming both tools ran only the first. "Did any of my subscriptions
+    go up in price?" plans anomaly (which charge moved) plus sql (by how much)
+    and reached the answer with the sql step silently dropped — the plan was
+    right, the run was short, and nothing reported a difference between them.
+    It is scored as a routing failure by the eval precisely because the eval
+    reads `tool_results` rather than the plan.
+
+    Conditional, unlike the semantic edge: the detectors return real rows, so
+    an anomaly-only question is already answerable and an unconditional hop to
+    SQL would add a call that changes nothing.
+    """
+    if _planned(state, "sql") or _has_retrieved_ids(state):
+        return "sql_tool"
+    return "answer"
 
 
 def route_after_verifier(state: AgentState) -> str:
@@ -95,6 +127,17 @@ def _is_empty(result: dict) -> bool:
 
 
 def _format_rows(result: dict) -> str:
+    # Semantic results are empty by design — §6.5 forbids them from carrying a
+    # figure — so the generic empty-result wording accused a successful
+    # retrieval of having found nothing. The answer to "what do I pay for my
+    # gym membership?" opened with "no matching transactions" and then gave the
+    # correct total, which reads as a contradiction and is really a category
+    # error about what this tool returns.
+    if result.get("tool") == "semantic":
+        found = len(result.get("transaction_ids") or [])
+        return f"matched {found} transaction(s), totalled below" if found \
+            else "matched nothing"
+
     if _is_empty(result):
         return "no matching transactions"
     rows = result["rows"]
@@ -128,10 +171,14 @@ def draft_answer(state: AgentState) -> AgentState:
         f"{r.get('sub_question') or state['question']} -> {_format_rows(r)}"
         for r in results
     ]
+    # Semantic results are excluded from the no-data test for the same reason:
+    # they are always empty, so counting them would report a fully answered
+    # question as having matched nothing whenever retrieval ran.
+    computed = [r for r in results if r.get("tool") != "semantic"]
     return {
         **state,
         "draft_answer": " | ".join(parts),
-        "no_data": all(_is_empty(r) for r in results),
+        "no_data": bool(computed) and all(_is_empty(r) for r in computed),
     }
 
 
@@ -184,9 +231,11 @@ def build_graph():
                                  "anomaly_tool": "anomaly_tool",
                                  "answer": "answer"})
     graph.add_conditional_edges("semantic_tool", route_after_semantic,
+                                {"sql_tool": "sql_tool",
+                                 "anomaly_tool": "anomaly_tool"})
+    graph.add_conditional_edges("anomaly_tool", route_after_anomaly,
                                 {"sql_tool": "sql_tool", "answer": "answer"})
     graph.add_edge("sql_tool", "answer")
-    graph.add_edge("anomaly_tool", "answer")
     graph.add_edge("answer", "verifier")
     graph.add_conditional_edges("verifier", route_after_verifier,
                                 {"planner": "planner", "answer": "finalize"})
@@ -195,22 +244,34 @@ def build_graph():
     return graph.compile()
 
 
-def ask(question: str) -> dict:
-    """Run one question end to end."""
+def ask(question: str, thread_id: str | None = None) -> dict:
+    """Run one question end to end.
+
+    With a `thread_id`, prior turns are shown to the planner so a follow-up can
+    be resolved ("and in May?"). Without one, the question stands alone — which
+    is what every eval does deliberately, so a benchmark score cannot be
+    inflated by a neighbouring question in the file.
+    """
+    from .memory import history, remember
+
     final = build_graph().invoke({
         "question": question,
         "plan": [],
         "tool_results": [],
         "replan_count": 0,
         "sql_attempts": 0,
+        "history": history(thread_id),
     })
     verdict = final.get("verifier_verdict") or {}
+    answer = final.get("draft_answer", "")
+    remember(thread_id, question, answer)
     return {
-        "answer": final.get("draft_answer", ""),
+        "answer": answer,
         "verified": bool(verdict.get("pass")),
         "no_data": bool(final.get("no_data")),
         "verdict": verdict,
         "plan": final.get("plan", []),
         "tool_results": final.get("tool_results", []),
         "answerable": final.get("answerable", True),
+        "thread_id": thread_id,
     }

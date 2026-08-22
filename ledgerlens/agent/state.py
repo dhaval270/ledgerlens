@@ -14,6 +14,11 @@ class AgentState(TypedDict, total=False):
     replan_count: int
     sql_attempts: int
 
+    # Prior turns of this conversation, oldest first, as {"question", "answer"}.
+    # Read by the planner and by nothing else — see agent/memory.py for why a
+    # figure must never travel this way.
+    history: list[dict]
+
     # Set by the planner. A question the ledger cannot answer is refused before
     # any tool runs — §9.1 makes refusal the correct answer for 7 golden
     # queries, and routing them anyway invites a tool to invent a number.

@@ -27,7 +27,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from ...db import compact_schema, connect_readonly
+from ...db import DB_PATH, compact_schema, connect_readonly
 from ..state import AgentState
 
 MAX_SQL_ATTEMPTS = 3
@@ -206,6 +206,75 @@ def _table_counts(conn: sqlite3.Connection) -> str:
     return "\n".join(lines)
 
 
+def _scope_hint(transaction_ids: list[int] | None, db_path=None) -> str:
+    """Turn retrieved ids into the categories and merchants they stand for.
+
+    The earlier version pasted the ids straight into the prompt as
+    `t.id IN (...)`, which reads like the safe choice and is a correctness
+    ceiling. §6.5 retrieves TOP_K = 20 rows; "what did I spend on anything
+    medical-looking?" is a total over 52 health transactions and "entertainment
+    and going out" over 103. Restricted to 20 ids, the model writes a flawless
+    SUM of the wrong set, the verifier confirms every figure came from a
+    retrieved row, and the answer is wrong by more than half.
+
+    That showed up the moment routing started working: in the routing eval,
+    every question that reached semantic+sql failed while the two that fell
+    through to sql alone passed. Retrieval was making answers worse.
+
+    So retrieval resolves *what the wording means* — the wording "gym
+    membership" is nowhere in the ledger, but the rows it retrieves are all
+    Planet Fitness — and SQL then aggregates over the whole of that merchant or
+    category. The embedding layer still never produces a figure, which is
+    §6.5's actual non-negotiable; that property comes from semantic_tool
+    returning `rows: []`, not from the size of the id list.
+
+    The ids themselves are deliberately **not** in the prompt. A first attempt
+    passed them along with an instruction to prefer the category or merchant,
+    and the instruction lost: asked what it spent on anything medical-looking,
+    the model wrote `SELECT SUM(amount) FROM transactions WHERE id IN (695,
+    412, 488, ...)` over the twenty ids it had been handed and returned -805.93
+    against a true -1874.81. A ready-made list of ids in the context is an
+    invitation no wording outweighs, so the fix is to not offer it.
+    """
+    if not transaction_ids:
+        return ""
+
+    placeholders = ", ".join("?" * len(transaction_ids))
+    with connect_readonly(db_path or DB_PATH) as conn:
+        rows = conn.execute(
+            f"""SELECT c.name AS category, m.canonical_name AS merchant, COUNT(*) AS n
+                FROM transactions t
+                LEFT JOIN categories c ON c.id = t.category_id
+                LEFT JOIN merchants m ON m.id = t.merchant_id
+                WHERE t.id IN ({placeholders})
+                GROUP BY c.name, m.canonical_name
+                ORDER BY n DESC""",
+            transaction_ids,
+        ).fetchall()
+
+    categories = sorted({r["category"] for r in rows if r["category"]})
+    merchants = sorted({r["merchant"] for r in rows if r["merchant"]})
+    if not categories and not merchants:
+        return ""
+
+    lines = [
+        "",
+        "A semantic search matched the wording of this question to real rows in",
+        "the ledger. What it found:",
+    ]
+    if categories:
+        lines.append(f"  categories: {', '.join(categories)}")
+    if merchants:
+        lines.append(f"  merchants:  {', '.join(merchants)}")
+    lines += [
+        "",
+        "Those names are what the question is asking about. Filter on them, over",
+        "the whole table.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def generate_sql(question: str, repair: str = "",
                  transaction_ids: list[int] | None = None) -> GeneratedSQL:
     from ...llm import invoke_structured
@@ -215,11 +284,7 @@ def generate_sql(question: str, repair: str = "",
         categories, merchants = _vocabulary(conn)
         types, spend_rule = _type_mix(conn), _spend_rule(conn)
 
-    scope = ""
-    if transaction_ids:
-        ids = ", ".join(str(i) for i in transaction_ids)
-        scope = (f"\n\nRestrict the query to these transaction ids, which a "
-                 f"semantic search already selected:\n  t.id IN ({ids})")
+    scope = _scope_hint(transaction_ids)
 
     return invoke_structured(
         GeneratedSQL,
@@ -319,9 +384,9 @@ def sql_tool(state: AgentState) -> AgentState:
     if not targets:
         targets = [{"sub_question": state["question"]}]
 
-    # §6.5: semantic retrieval returns IDs, and SQL does the arithmetic over
-    # them. Scoping the query to those IDs is what keeps the embedding layer
-    # from ever producing a figure.
+    # §6.5: semantic retrieval returns IDs and SQL does the arithmetic. The IDs
+    # say which merchants and categories the wording meant; see `_scope_hint`
+    # for why they are not used as a hard filter.
     retrieved: list[int] = []
     for prior in results:
         retrieved.extend(prior.get("transaction_ids") or [])

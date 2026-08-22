@@ -14,7 +14,8 @@ from ledgerlens.agent.nodes.planner import MAX_STEPS, Plan, Step, Tool, planner
 
 
 def make(monkeypatch, plan: Plan):
-    monkeypatch.setattr(planner_mod, "make_plan", lambda question, feedback="": plan)
+    monkeypatch.setattr(planner_mod, "make_plan",
+                        lambda question, feedback="", history=None: plan)
 
 
 def step(n: int = 1, tool: Tool = Tool.SQL) -> Step:
@@ -95,7 +96,7 @@ def test_verifier_reason_is_fed_back_into_planning(monkeypatch):
     """§6.7: on failure the reason becomes extra planner context."""
     seen = {}
 
-    def capture(question, feedback=""):
+    def capture(question, feedback="", history=None):
         seen["feedback"] = feedback
         return Plan(answerable=True, steps=[step()])
 

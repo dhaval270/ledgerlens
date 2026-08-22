@@ -21,12 +21,13 @@ flowchart TD
     Q([question]) --> P[planner]
     P -->|unanswerable| A[answer]
     P -->|semantic| S[semantic_tool]
-    P -->|sql| SQL[sql_tool]
     P -->|anomaly| AN[anomaly_tool]
-    S -->|retrieved ids| SQL
-    S --> A
+    P -->|sql| SQL[sql_tool]
+    S -->|matched merchants<br/>and categories| AN
+    S -->|matched merchants<br/>and categories| SQL
+    AN -->|sql also planned| SQL
+    AN -->|anomaly answers it| A
     SQL --> A
-    AN --> A
     A[answer<br/><i>string assembly, no LLM, no maths</i>] --> V{verifier}
     V -->|fail, replans left| P
     V -->|pass| F[finalize]
@@ -34,12 +35,19 @@ flowchart TD
     F --> E([END])
 ```
 
-Three things about this shape are deliberate:
+Four things about this shape are deliberate:
 
 - **`answer` does no arithmetic.** It formats retrieved rows and nothing else. Anything it
   invented would be a figure with no provenance, and the verifier would reject it anyway.
-- **`semantic` runs before `sql`.** Retrieval produces transaction IDs that SQL then aggregates,
-  so the ordering is a data dependency, not a preference.
+- **The tools are a chain, not a fan-out.** Each hop is conditional, so a plan naming one tool
+  runs one tool — but a plan naming two runs both. They used to be parallel branches into
+  `answer`, which meant a plan reading *anomaly then sql* ran the anomaly step and dropped the
+  other without a word.
+- **`semantic` hands over names, not ids.** Retrieval resolves what the wording *means* — "gym
+  membership" is nowhere in a bank descriptor, but the rows it retrieves are all Planet Fitness —
+  and SQL then aggregates the whole merchant. Passing the retrieved ids as a filter instead caps
+  every total at `TOP_K = 20` rows, which is wrong by more than half on a 52-row category and
+  passes verification, because every figure did come from a retrieved row.
 - **Hitting the replan cap is a legitimate outcome.** An honest "I couldn't verify this" beats a
   confident wrong number, so the graph is allowed to finish without an answer.
 
@@ -63,11 +71,21 @@ to.
 
 ## Metrics
 
-All figures below are measured, reproducible from this repo, and recorded in
-`evals/golden_results.json`. Model: `llama-3.3-70b-versatile` on Groq. Data: the seeded synthetic
-ledger (832 transactions, 12 months, 22 merchants).
+Model: **`openai/gpt-oss-120b`** on Groq. Data: the seeded synthetic ledger (832 transactions,
+12 months, 22 merchants).
 
-### Query accuracy — 53 golden queries
+Two caveats belong at the top rather than in a footnote:
+
+**Run-to-run variance is large, and every figure here is one run.** Routing accuracy read 50.0%
+and then 44.4% across two runs with no routing code changed between them. Treat single-digit
+differences as noise; the section on model selection below is a worked example of what that
+costs when it is ignored.
+
+**Everything marked *historical* was measured on `llama-3.3-70b-versatile`, which Groq has since
+retired — the model id now returns a 404.** Those numbers were real when taken and cannot be
+reproduced today, so they are labelled rather than deleted or quietly restated.
+
+### Query accuracy — 53 golden queries *(historical)*
 
 | Metric | Value |
 |---|---|
@@ -90,16 +108,75 @@ The repair loop rescued nothing on this run, and that is worth stating plainly r
 hiding: with the 70B, first-attempt SQL validity is already 100%, so there is nothing left for it
 to repair. It earned its place against the 8B (95.7% first-attempt) and is now insurance.
 
+This table measures the SQL tool, not the agent: `run_golden_eval.py` calls `run_query()`
+directly, so the planner never ran and the graph was never built. That is a real number for
+text-to-SQL and it is not a number for a three-tool agent — which is what the routing table below
+exists to measure, and why it reads so much lower.
+
+### Routing — 18 questions through the whole graph
+
+The table above measures the SQL tool. This one measures the agent: every question goes through
+`ask()`, so the planner runs, the graph is built, and `semantic_tool` / `anomaly_tool` execute
+under evaluation for the first time.
+
+```
+python evals/run_routing_eval.py
+```
+
+| Run | Routing accuracy | Answer accuracy | Verified **and** wrong |
+|---|---|---|---|
+| Baseline | 38.9% | 38.9% | 7 / 18 |
+| Vocabulary in the planner prompt | 50.0% | 33.3% | 11 / 18 |
+| ...plus concept scoping, tool chaining | 44.4% | 33.3% | 11 / 18 |
+| ...plus ids withheld, honest empty-retrieval wording † | 38.5% | 46.2% | 2 / 13 |
+
+† Truncated: the daily Groq token budget ran out with 5 of the 18 queries left, so that row is
+scored over the 13 that reached the model and is **not** comparable with the rows above it. The
+harness now excludes 429s from its denominators instead of averaging them in as zeros — before
+that fix this run reported 27.8%, which was a quota problem wearing a quality problem's clothes.
+
+**What this table honestly supports, and what it does not.** Routing spans 38.5–50.0% across
+four runs; that spread is wider than any single change measured, so no row here demonstrates an
+improvement in the headline. The per-tool number is firmer: semantic questions routed to
+`semantic` went from 2 of 10 to 4–6 of 10 and stayed there across every run after the prompt
+change. `verified_but_wrong` falling from 7 to 2 is the other real movement. **And the last code
+change on that list is unmeasured** — the quota was gone before it could be run.
+
+Four things this exercise found that the SQL-only harness structurally could not:
+
+- **A semantic-only plan could never answer.** `semantic_tool` returns ids and an explicitly
+  empty `rows`, and the graph routed such a plan straight to `answer`, which then reported "no
+  matching transactions" over a retrieval that had succeeded. A unit test asserted this dead end
+  *as correct behaviour* and had passed for the life of the project.
+- **Retrieval was capping every total at 20 rows.** SQL was scoped to the retrieved ids, so
+  "anything medical-looking" — 52 health transactions — summed twenty of them and returned
+  -805.93 against a true -1874.81. It passed verification, because every figure genuinely came
+  from a retrieved row.
+- **The instruction lost to the affordance.** Passing the ids alongside "prefer the category or
+  merchant" did not work; the model used the ids anyway. Removing them from the prompt is the fix.
+- **A plan naming two tools ran one.** The anomaly branch went straight to `answer`, so the sql
+  half of a two-step plan was dropped silently.
+
+The verifier's precision is the uncomfortable number. It checks **provenance, not relevance**:
+asked for normal travel spend *ignoring the spike*, the agent averages including the spike and
+passes, because the figure did come from a row. Fabrication is caught; wrongness is not.
+
 ### Verifier — inject wrong numbers, confirm rejection
 
 | Metric | Value |
 |---|---|
-| Catch rate on corrupted answers | **100%** (126/126) |
-| False rejection rate on correct answers | **0%** (0/32) |
+| Catch rate on corrupted answers | **100%** (161/161) |
+| False rejection rate on correct answers | **0%** (0/41) |
 
 ```
 python evals/run_verifier_eval.py
 ```
+
+The one number here that is current rather than historical, because this suite makes no API
+calls — the verifier is a pure function and the answer keys come out of the ledger. It had
+stopped running entirely: the anomaly questions carry a `reference_fn` instead of
+`reference_sql`, and this loop assumed every entry had SQL, so it had raised `KeyError` since
+the day those questions were added.
 
 Both numbers are reported together on purpose. A verifier that rejects everything scores 100%
 catch and is worthless; one that rejects correct answers is worse than absent, because it teaches
@@ -107,7 +184,7 @@ the reader to ignore the verdict. Corruptions are multiplicative (±20%, ±35%, 
 that land inside rounding tolerance are discarded as invalid trials rather than counted as misses.
 The verifier runs entirely on retrieved rows — no LLM, no network, fully deterministic.
 
-### Merchant resolution — 200 hand-labeled descriptors
+### Merchant resolution — 200 hand-labeled descriptors *(historical)*
 
 | Metric | Value |
 |---|---|
@@ -119,6 +196,12 @@ The verifier runs entirely on retrieved rows — no LLM, no network, fully deter
 python evals/run_merchant_eval.py
 ```
 
+**This one rebuilds `ledger.db`.** It re-ingests and re-resolves the whole synthetic ledger, and
+tier-3 resolution is an LLM call, so it re-labels the merchants rather than reproducing them —
+which is why these figures have not simply been re-taken on the current model. Re-running it
+invalidates the golden set's answer key until the reference queries are checked against the new
+names.
+
 Cluster accuracy is the number that matters and exact match is the cosmetic one. A *split* —
 one real merchant landing on two canonical entries — is invisible per-row and fatal in aggregate,
 because every query for that merchant silently returns a fraction of its true total. Exact match
@@ -126,7 +209,7 @@ penalizes `AMC` vs `AMC Theatres`, which changes no total anywhere. An earlier v
 scorer used prefix matching and gave a 5-way merchant split a 95% score; that is why splits now
 get their own metric.
 
-### Categorization — the same 200 labels
+### Categorization — the same 200 labels *(historical)*
 
 | Metric | Rules on | Rules ablated |
 |---|---|---|
@@ -147,7 +230,7 @@ transactions, so neither column is a generalization estimate; and the ablated ru
 run I was unable to repeat before exhausting the daily API quota. An earlier ablation on
 `llama-3.1-8b-instant` scored 97.0%.
 
-### Model selection
+### Model selection *(historical)*
 
 `llama-3.3-70b-versatile` over `llama-3.1-8b-instant`, measured on the golden set at the time of
 the switch: **67.4% vs 52.2%** execution accuracy, **100% vs 95.7%** first-attempt SQL validity,
@@ -159,7 +242,7 @@ points, so a +15.2 point gap is suggestive rather than decisive. Two prompt rewr
 moved accuracy by −4.4 and −2.2 points, both inside its noise — measuring the noise floor first
 is what stopped me from shipping either as an improvement.
 
-### Where the 9 remaining failures come from
+### Where the 9 remaining failures come from *(historical)*
 
 | Cause | Count |
 |---|---|
@@ -192,13 +275,17 @@ myenv/bin/python -m ledgerlens.ingest --init --resolve data/synthetic/transactio
 Then either ask questions from the API:
 
 ```bash
-myenv/bin/uvicorn ledgerlens.api.main:app --reload   # http://127.0.0.1:8000/docs
+myenv/bin/uvicorn ledgerlens.api.main:app --reload   # /ui to use it, /docs for the API
 ```
+
+`/ui` is a single self-contained page — no CDN, no build step — with four tabs: **Ask**,
+**Data**, **Review**, and **Upload**. Review is where §8 lives: propose a change, read the diff,
+approve or reject.
 
 or run the suites:
 
 ```bash
-myenv/bin/python -m pytest                       # 152 tests, no network
+myenv/bin/python -m pytest                       # 256 tests, no network
 myenv/bin/python evals/run_evals.py --verifier   # deterministic, needs no API key
 myenv/bin/python evals/run_evals.py              # + the golden set
 myenv/bin/python evals/run_evals.py --rebuild    # + merchant/categorization
@@ -207,6 +294,13 @@ myenv/bin/python evals/run_evals.py --rebuild    # + merchant/categorization
 `--rebuild` is opt-in because it re-ingests the synthetic ledger from scratch, which deletes
 `ledger.db`. That is correct for a benchmark and destructive for anyone with real statements
 loaded.
+
+**The generator is seeded; the ledger is not reproducible.** Transactions come out identical
+every time, but tier-3 merchant resolution calls a model, so the `merchants` table does not. One
+rebuild resolved a descriptor to `Delta` and the next to `Delta Air Lines`, which silently
+emptied every reference query matching `canonical_name = 'Delta'` — a drifted answer key reads
+as a model regression. The golden set matches merchants by prefix (`LIKE 'Delta%'`) for exactly
+this reason. Rebuilding is a re-labelling, not a replay.
 
 ### Using it on your own statements
 
@@ -233,6 +327,8 @@ balance, which is the cheapest way to catch a misparse before it becomes ground 
 |---|---|
 | `POST /ingest` | upload a statement; re-uploading the same file is a safe no-op |
 | `POST /ask` | ask a question; returns the answer *and* its verification verdict |
+| `DELETE /ask/{thread_id}` | forget one conversation's history |
+| `GET /meta` | categories, merchants and periods — the approval forms' dropdowns |
 | `GET /stats` | what is in the open database, starting with which file it is |
 | `GET /transactions` | paged, filterable rows (`q`, `type`, `source`, `limit`, `offset`) |
 | `GET /digest/{YYYY-MM}` | run the proactive detectors for a month |
@@ -286,6 +382,16 @@ permission.
 - **Approvals are per-process.** The interrupt uses an in-memory checkpointer, so a pending
   proposal does not survive a restart. A persistent checkpointer is a drop-in change; it just
   isn't made yet.
+- **Conversation history is per-process too, and deliberately thin.** Follow-ups work — "and in
+  May?", "why?" — because prior turns are shown to the planner so it can rewrite the question
+  into one that stands alone. They reach no other node, so a figure from an earlier turn can
+  never be presented as this turn's answer; the tools re-retrieve everything and the verifier
+  still checks every number against a row retrieved *this* turn. History dies with the server,
+  and every eval calls `ask()` without a thread id so no benchmark score can be lifted by the
+  question that ran before it.
+- **There is no authentication.** The API is built to be bound to localhost and read by one
+  person. Every route is open, including the ones that write, so putting it on a network without
+  putting something in front of it would publish your statements.
 
 ---
 
@@ -298,12 +404,15 @@ ledgerlens/
 ├── ingest/               parse → dedup → merchants → categorize → recurring
 ├── agent/
 │   ├── graph.py          the StateGraph above
+│   ├── memory.py         conversation history — planner context, never a figure
 │   └── nodes/            planner, sql_tool, semantic_tool, anomaly_tool, verifier
 ├── proactive/            §7 detectors + monthly digest
 ├── approvals/            §8 interrupt-gated writes
-└── api/main.py           FastAPI surface
+├── api/main.py           FastAPI surface
+└── api/ui.html           the whole front end, in one file
 evals/                    golden set, labeled data, and the scripts behind every number above
-tests/                    152 tests, no network
+tests/                    256 tests, no network
+.github/workflows/ci.yml  runs the 241 that need no ledger and no key
 ```
 
 ## Demo
