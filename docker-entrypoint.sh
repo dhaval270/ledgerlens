@@ -1,13 +1,16 @@
 #!/bin/sh
-# The ledger lives on a mounted volume, which is empty on the first boot of a
-# new deployment. Seed it once with the synthetic set so the demo has something
-# to answer questions about; every boot after this finds a database and skips.
+# The image ships with a ledger already built (see Dockerfile), so the common
+# path here does nothing. The seed stays as a fallback for a deployment that
+# mounts an empty volume over /app or points LEDGERLENS_DB somewhere new —
+# better a slow first boot than a service answering every question with
+# "no matching transactions".
 set -e
 
 if [ ! -f "$LEDGERLENS_DB" ]; then
-    echo "no ledger at $LEDGERLENS_DB — seeding the synthetic set"
+    echo "no ledger at $LEDGERLENS_DB — seeding"
     python -m ledgerlens.synthetic
-    python -m ledgerlens.ingest --init --resolve data/synthetic/transactions.csv
+    python -m ledgerlens.ingest --init data/synthetic/transactions.csv
+    python -m ledgerlens.index
 else
     echo "ledger found at $LEDGERLENS_DB"
 fi
