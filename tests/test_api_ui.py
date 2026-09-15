@@ -96,3 +96,23 @@ def test_a_write_is_never_one_click_away(client):
     decide_at = body.index("/decide")
     assert "renderProposal" in body[:decide_at]
     assert body.count("awaiting your approval") == 1
+
+
+def test_the_root_serves_the_page(client):
+    """Typing the base URL should land on the app, not a directory of the app."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "<title>LedgerLens</title>" in response.text
+    assert "no-store" in response.headers.get("cache-control", "")
+
+
+def test_the_old_ui_address_still_works(client):
+    """`/ui` is in the README and in anyone's bookmarks. Moving the page to `/`
+    adds an address; it does not take one away."""
+    assert client.get("/ui").text == client.get("/").text
+
+
+def test_the_api_index_moved_to_api(client):
+    body = client.get("/api").json()
+    assert body["service"] == "LedgerLens"
+    assert body["ui"] == "/"
