@@ -59,15 +59,21 @@ class Decision(BaseModel):
     note: str = ""
 
 
-@app.get("/")
-def root() -> dict:
-    """Landing route — hitting / and getting a 404 reads as a broken server."""
+@app.get("/api")
+def api_index() -> dict:
+    """Self-describing API root, for anyone poking at the service with curl.
+
+    This used to live at `/`. It moved because a person who types the base URL
+    wants the app, not a directory of the app — and the same reasoning that put
+    something at `/` in the first place (a 404 there reads as a broken server)
+    argues for that something being the page itself.
+    """
     return {
         "service": "LedgerLens",
-        "ui": "/ui",
+        "ui": "/",
         "docs": "/docs",
         "endpoints": {
-            "GET /ui": "the operator page",
+            "GET /": "the operator page (also at /ui)",
             "GET /health": "service and database status",
             "POST /ingest": "upload a statement (.csv/.pdf)",
             "POST /ask": "ask a question about the ledger",
@@ -85,9 +91,12 @@ def health() -> dict:
     return {"status": "ok", "db": DB_PATH.exists()}
 
 
+@app.get("/", response_class=HTMLResponse)
 @app.get("/ui", response_class=HTMLResponse)
 def ui() -> HTMLResponse:
-    """The operator page. Served from disk so editing it needs no restart.
+    """The operator page, at `/` and at its old `/ui` address.
+
+    Served from disk so editing it needs no restart.
 
     Explicitly uncacheable. Without these headers browsers heuristically cache a
     response that carries no `Cache-Control`, which produced the worst kind of
