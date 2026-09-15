@@ -51,6 +51,29 @@ parser also refuses a file whose transactions don't reconcile against the printe
 balance, which is the cheapest way to catch a misparse before it becomes ground truth.
 </details>
 
+<details>
+<summary><b>Deploying it somewhere public</b></summary>
+
+**Not Vercel, and not any serverless host.** Three blockers: `sentence-transformers`
+pulls in `torch` (518 MB against a 250 MB function limit), `/ingest` and every approval
+write to a SQLite file that an ephemeral filesystem would discard, and paused approvals
+live in an in-memory checkpointer that a second invocation cannot see. This is a
+stateful container, so it needs a container host with a disk.
+
+`Dockerfile` and `render.yaml` are in the repo. On [Render](https://render.com),
+*New → Blueprint* pointed at the repo reads the blueprint and provisions the disk;
+Railway and Fly.io take the same Dockerfile. Set `GROQ_API_KEY` in the dashboard — never
+in the blueprint. First boot seeds the synthetic ledger onto the volume; every boot after
+finds it and skips.
+
+**A public instance must set `LEDGERLENS_DEMO=1`.** There is no authentication, so
+without it the open write routes let any visitor upload into your ledger or approve
+changes to it. With it, `/ingest` and both approval routes return 403 and everything
+else works — which is the right shape for a demo over synthetic data anyway. Host the
+synthetic ledger, not your own statements.
+
+</details>
+
 ---
 
 ## Architecture
@@ -133,7 +156,7 @@ makes no API calls.
 behind it, and an honest account of what each one does *not* support.
 
 ```bash
-myenv/bin/python -m pytest                       # 259 tests, no network
+myenv/bin/python -m pytest                       # 272 tests, no network
 myenv/bin/python evals/run_evals.py --verifier   # deterministic, needs no API key
 myenv/bin/python evals/run_evals.py              # + the golden set
 myenv/bin/python evals/run_evals.py --rebuild    # + merchant/categorization (deletes ledger.db)
@@ -199,7 +222,8 @@ underneath it, so an approval is consent to one specific diff rather than standi
   turn can never be presented as this turn's answer.
 - **There is no authentication.** Every route is open, including the ones that write. Built to be
   bound to localhost; putting it on a network without something in front of it would publish your
-  statements.
+  statements. `LEDGERLENS_DEMO=1` closes the write routes for a public instance — it is a blast
+  radius limit, not a login.
 
 ---
 
@@ -219,7 +243,8 @@ ledgerlens/
 ├── api/main.py           FastAPI surface
 └── api/ui.html           the whole front end, in one file
 evals/                    golden set, labeled data, and the scripts behind every number
-tests/                    259 tests, no network
+tests/                    272 tests, no network
+Dockerfile, render.yaml   container + blueprint for a hosted instance
 docs/EVALUATION.md        the full measurement write-up
 .github/workflows/ci.yml  runs the 241 tests that need no ledger and no key
 ```

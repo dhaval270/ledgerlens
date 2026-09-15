@@ -1,0 +1,16 @@
+myenv/
+.git/
+.github/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.pyc
+tests/
+evals/
+docs/
+data/private/
+*.db
+*.npz
+.env
+README.md
+instructions.md

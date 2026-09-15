@@ -7,6 +7,7 @@ per §10.
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -29,6 +30,32 @@ UI_PATH = Path(__file__).resolve().parent / "ui.html"
 ALLOWED_SUFFIXES = {".pdf", ".csv"}
 
 app = FastAPI(title="LedgerLens", version="0.1.0")
+
+
+def _demo_mode() -> bool:
+    """True when this instance is a public demo and must accept no writes.
+
+    Read per-request rather than captured at import, so a test can set it
+    without rebuilding the app, and so a host that injects the variable late
+    still gets the behaviour.
+    """
+    return os.environ.get("LEDGERLENS_DEMO", "").lower() in {"1", "true", "yes"}
+
+
+def _refuse_writes_in_demo() -> None:
+    """The whole app is unauthenticated (§ "What this doesn't do"), which is
+    fine bound to localhost and not fine on a public URL. Rather than bolt on a
+    login, a hosted instance runs read-only: anyone can ask the synthetic
+    ledger anything, nobody can change it or upload into it.
+
+    403 rather than 404 on purpose — the route exists, the deployment declines.
+    """
+    if _demo_mode():
+        raise HTTPException(
+            403,
+            "This is a read-only demo. Uploads and approvals are disabled here — "
+            "run it locally to use those.",
+        )
 
 
 class Question(BaseModel):
@@ -88,7 +115,7 @@ def api_index() -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "db": DB_PATH.exists()}
+    return {"status": "ok", "db": DB_PATH.exists(), "demo": _demo_mode()}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -238,6 +265,7 @@ def meta() -> dict:
 @app.post("/ingest")
 async def ingest(file: UploadFile = File(...)) -> dict:
     """Upload one statement. Re-uploading the same file is a safe no-op (§5.2)."""
+    _refuse_writes_in_demo()
     name = Path(file.filename or "").name  # strip any path components
     if not name:
         raise HTTPException(400, "No filename provided")
@@ -367,6 +395,7 @@ def get_digest(period: str, narrate: bool = True) -> dict:
 @app.post("/approvals")
 def create_approval(payload: ProposalRequest) -> dict:
     """Propose a change. Returns the pending diff and writes nothing."""
+    _refuse_writes_in_demo()
     _require_ledger()
     try:
         return propose(payload.action, **payload.params)
@@ -384,6 +413,7 @@ def get_approval(thread_id: str) -> dict:
 
 @app.post("/approvals/{thread_id}/decide")
 def decide_approval(thread_id: str, payload: Decision) -> dict:
+    _refuse_writes_in_demo()
     if pending(thread_id) is None:
         raise HTTPException(404, f"no approval pending on {thread_id}")
     try:

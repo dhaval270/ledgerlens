@@ -1,0 +1,21 @@
+# Render blueprint — `render.yaml` in the repo root, then "New → Blueprint" in
+# the dashboard and point it at the repo.
+services:
+  - type: web
+    name: ledgerlens
+    runtime: docker
+    plan: starter          # free has no persistent disk, and the ledger needs one
+    healthCheckPath: /health
+    disk:
+      name: ledger
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false        # set it in the dashboard; never in this file
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: LEDGERLENS_DB
+        value: /data/ledger.db
+      - key: LEDGERLENS_DEMO
+        value: "1"         # public URL, no auth → reads only
