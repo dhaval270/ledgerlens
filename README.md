@@ -54,23 +54,25 @@ balance, which is the cheapest way to catch a misparse before it becomes ground 
 <details>
 <summary><b>Deploying it somewhere public</b></summary>
 
-**Not Vercel, and not any serverless host.** Three blockers: `sentence-transformers`
-pulls in `torch` (518 MB against a 250 MB function limit), `/ingest` and every approval
-write to a SQLite file that an ephemeral filesystem would discard, and paused approvals
-live in an in-memory checkpointer that a second invocation cannot see. This is a
-stateful container, so it needs a container host with a disk.
+**Not Vercel, and not any serverless host.** Three blockers: `sentence-transformers` pulls in
+`torch` (518 MB against a 250 MB function limit), `/ingest` and every approval write to a SQLite
+file that an ephemeral filesystem would discard, and paused approvals live in an in-memory
+checkpointer that a second invocation cannot see. This is a container, so it needs a container host.
 
-`Dockerfile` and `render.yaml` are in the repo. On [Render](https://render.com),
-*New → Blueprint* pointed at the repo reads the blueprint and provisions the disk;
-Railway and Fly.io take the same Dockerfile. Set `GROQ_API_KEY` in the dashboard — never
-in the blueprint. First boot seeds the synthetic ledger onto the volume; every boot after
-finds it and skips.
+`Dockerfile` and `render.yaml` are in the repo. On [Render](https://render.com), *New → Blueprint*
+pointed at this repo reads the blueprint; Railway and Fly.io take the same Dockerfile. Set
+`GROQ_API_KEY` in the dashboard — never in the blueprint.
 
-**A public instance must set `LEDGERLENS_DEMO=1`.** There is no authentication, so
-without it the open write routes let any visitor upload into your ledger or approve
-changes to it. With it, `/ingest` and both approval routes return 403 and everything
-else works — which is the right shape for a demo over synthetic data anyway. Host the
-synthetic ledger, not your own statements.
+The image builds its own demo ledger and vector index at **build** time rather than on boot. A
+free-tier instance sleeps when idle and cold-starts often, and generating 832 rows and embedding
+them takes longer than a visitor will wait. Merchant resolution deliberately skips `--resolve`
+there: tier 3 is an LLM call, so it would need a key at build time and spend quota on every
+rebuild, while tiers 1–2 resolve 96.9% of descriptors with no model at all.
+
+**A public instance must set `LEDGERLENS_DEMO=1`.** There is no authentication, so without it the
+open write routes let any visitor upload into your ledger or approve changes to it. With it,
+`/ingest` and both approval routes return 403 and everything else works — which is the right shape
+for a demo over synthetic data anyway. Host the synthetic ledger, not your own statements.
 
 </details>
 

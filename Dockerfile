@@ -1,8 +1,8 @@
-# LedgerLens — a stateful container, not a serverless function.
+# LedgerLens — a container, not a serverless function.
 #
-# sentence-transformers pulls in torch (~518 MB), and the ledger is a SQLite
-# file that /ingest and every approval write to. Both facts rule out the
-# serverless hosts; what this needs is a container with a disk attached.
+# sentence-transformers pulls in torch (~518 MB), against a 250 MB limit on the
+# serverless hosts, and paused approvals live in an in-memory checkpointer that
+# a second invocation could not see. Both rule out that shape of deployment.
 
 FROM python:3.12-slim
 
@@ -27,11 +27,21 @@ RUN python -c "from sentence_transformers import SentenceTransformer; \
 COPY ledgerlens/ ./ledgerlens/
 COPY docker-entrypoint.sh .
 
-# The ledger lives on the mounted volume, not in the image — an image layer is
-# recreated on every deploy, which would silently discard uploaded statements.
-ENV LEDGERLENS_DB=/data/ledger.db \
+ENV LEDGERLENS_DB=/app/ledger.db \
     PYTHONUNBUFFERED=1
-VOLUME /data
+
+# Bake the demo ledger and its vector index into the image rather than building
+# them on boot. A free-tier instance sleeps when idle and cold-starts often, and
+# generating 832 rows and embedding them takes far longer than a visitor will
+# wait. Built once here, every boot after is instant.
+#
+# Deliberately no --resolve: tier-3 merchant resolution is an LLM call, so it
+# would need an API key at build time and would spend quota on every image
+# rebuild. Tiers 1 and 2 resolve 96.9% of descriptors with no model at all,
+# which is plenty for a demo.
+RUN python -m ledgerlens.synthetic \
+    && python -m ledgerlens.ingest --init data/synthetic/transactions.csv \
+    && python -m ledgerlens.index
 
 EXPOSE 8000
 ENTRYPOINT ["./docker-entrypoint.sh"]
