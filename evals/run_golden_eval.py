@@ -27,10 +27,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # evals/ is not a package
 
-from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
-
 from langchain_core.callbacks import get_usage_metadata_callback
 
+from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
 from ledgerlens.agent.nodes.sql_tool import run_query
 
 GOLDEN = Path(__file__).parent / "golden_queries.jsonl"

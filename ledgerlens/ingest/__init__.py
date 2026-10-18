@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .dedup import content_hash
 from .parse import RawRow, detect_adapter, parse
 
-__all__ = ["IngestResult", "ingest_file", "parse", "RawRow", "resolve_pending"]
+__all__ = ["IngestResult", "RawRow", "ingest_file", "parse", "resolve_pending"]
 
 
 @dataclass
@@ -88,7 +88,9 @@ def ensure_account(conn: sqlite3.Connection, name: str = "Primary Checking") -> 
     return cur.lastrowid
 
 
-def ingest_file(conn: sqlite3.Connection, path: Path, account_id: int | None = None) -> IngestResult:
+def ingest_file(
+    conn: sqlite3.Connection, path: Path, account_id: int | None = None
+) -> IngestResult:
     """Parse and load one statement. Raises parse.StatementError on bad input."""
     adapter = detect_adapter(path)
     rows: list[RawRow] = adapter.parse(path)
@@ -96,7 +98,7 @@ def ingest_file(conn: sqlite3.Connection, path: Path, account_id: int | None = N
     if account_id is None:
         account_id = ensure_account(conn)
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     inserted = 0
 
     for row in rows:

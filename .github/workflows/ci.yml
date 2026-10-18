@@ -4,7 +4,7 @@
 # build artifact and gitignored, and rebuilding it needs a GROQ_API_KEY —
 # tier-3 merchant resolution calls a model, and it does not resolve to the same
 # canonical names twice (see evals/build_golden_queries.py). So CI runs the
-# 205 tests that need neither a ledger nor a network, and the 15 that read the
+# 257 tests that need neither a ledger nor a network, and the 15 that read the
 # synthetic benchmark skip. Every eval in evals/ is likewise a local, paid,
 # non-deterministic run; none of them gate a merge.
 #
@@ -35,6 +35,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Lint
+        run: ruff check .
+
       - name: Run the suite
         run: pytest --junit-xml=report.xml
 
@@ -52,6 +55,6 @@ jobs:
           skipped = int(suite.get("skipped"))
           ran = total - skipped
           print(f"{ran} ran, {skipped} skipped, {total} collected")
-          if ran < 220:
+          if ran < 250:
               sys.exit(f"only {ran} tests actually ran — the suite is not being exercised")
           PY

@@ -9,7 +9,6 @@ import pytest
 
 from ledgerlens.db import SCHEMA_PATH
 from ledgerlens.ingest.recurring import (
-    MAX_GAP_CV,
     PRICE_HIKE_RATIO,
     detect_series,
     price_hikes,
@@ -39,7 +38,7 @@ def add(conn, merchant: str, offsets: list[int], amounts: list[float], txn_type=
         "INSERT INTO merchants (canonical_name) VALUES (?)", (merchant,)
     ).lastrowid
 
-    for i, (offset, amount) in enumerate(zip(offsets, amounts)):
+    for i, (offset, amount) in enumerate(zip(offsets, amounts, strict=False)):
         when = (START + timedelta(days=offset)).isoformat()
         conn.execute(
             """INSERT INTO transactions
@@ -144,7 +143,7 @@ def test_transactions_are_linked_to_their_series(conn):
 
 def test_refunds_do_not_corrupt_a_series(conn):
     """A refund against a regular merchant is inflow noise, not an occurrence."""
-    mid = add(conn, "Adobe", [0, 30, 60, 90], [-22.99] * 4)
+    add(conn, "Adobe", [0, 30, 60, 90], [-22.99] * 4)
     add(conn, "Adobe", [45], [22.99], txn_type="refund")
     detect_series(conn)
 

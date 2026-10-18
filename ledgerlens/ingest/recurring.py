@@ -28,6 +28,7 @@ import sqlite3
 import statistics as st
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import pairwise
 
 MIN_OCCURRENCES = 3
 MAX_GAP_CV = 0.20        # stdev / mean of the day gaps
@@ -78,7 +79,7 @@ def _analyze(rows: list[tuple[str, float]], ledger_end: date) -> Series | None:
     dates = [date.fromisoformat(d) for d, _ in rows]
     amounts = [a for _, a in rows]
 
-    gaps = [(b - a).days for a, b in zip(dates, dates[1:])]
+    gaps = [(b - a).days for a, b in pairwise(dates)]
     if not gaps or any(g <= 0 for g in gaps):
         return None  # same-day repeats are duplicates, not a cadence
     if _cv(gaps) > MAX_GAP_CV:

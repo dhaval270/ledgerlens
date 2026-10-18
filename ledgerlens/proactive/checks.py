@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from ..agent.nodes.anomaly_tool import detect as detect_anomalies
 from ..ingest.recurring import price_hikes
@@ -42,7 +42,7 @@ KINDS = (
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _record(
@@ -93,7 +93,7 @@ def check_duplicate_charges(conn: sqlite3.Connection, period: str) -> int:
     ).fetchall()
 
     found = 0
-    for txn_id, merchant_id, merchant, amount, first, second in rows:
+    for txn_id, _merchant_id, merchant, amount, first, second in rows:
         found += _record(conn, "duplicate_charge", txn_id, period, {
             "merchant": merchant, "amount": amount, "dates": [first, second],
         })

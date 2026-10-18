@@ -40,9 +40,9 @@ def narrate(conn: sqlite3.Connection, period: str) -> str:
     if not findings:
         return f"Nothing notable in {period}."
 
-    from ..llm import get_llm
-
     import json
+
+    from ..llm import get_llm
 
     response = get_llm().invoke(
         PROMPT.format(period=period, findings=json.dumps(findings, indent=2, default=str))

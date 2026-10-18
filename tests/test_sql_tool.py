@@ -9,7 +9,6 @@ import pytest
 from ledgerlens.agent.nodes.sql_tool import is_safe
 from ledgerlens.db import DB_PATH, connect_readonly
 
-
 # --- must be rejected --------------------------------------------------------
 
 @pytest.mark.parametrize("sql", [
@@ -85,9 +84,8 @@ def test_trailing_semicolon_is_tolerated():
 @pytest.mark.skipif(not DB_PATH.exists(), reason="ledger.db not built")
 def test_readonly_connection_blocks_mutation_even_if_the_screen_is_bypassed():
     """The screen is for messages; this is the real guarantee."""
-    with connect_readonly() as conn:
-        with pytest.raises(sqlite3.OperationalError):
-            conn.execute("DELETE FROM transactions")
+    with connect_readonly() as conn, pytest.raises(sqlite3.OperationalError):
+        conn.execute("DELETE FROM transactions")
 
 
 # --- the prompt follows the data, not an assumption ---------------------------

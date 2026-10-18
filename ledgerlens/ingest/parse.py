@@ -220,8 +220,8 @@ class ChaseCheckingPDF:
     def _detail_block(cls, text: str) -> list[str]:
         lines = text.splitlines()
         try:
-            first = next(i for i, l in enumerate(lines) if cls.START in l)
-            last = next(i for i, l in enumerate(lines) if cls.END in l)
+            first = next(i for i, line in enumerate(lines) if cls.START in line)
+            last = next(i for i, line in enumerate(lines) if cls.END in line)
         except StopIteration as exc:
             raise StatementError(
                 "Chase statement is missing its transaction-detail markers."

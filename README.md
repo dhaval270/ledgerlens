@@ -248,5 +248,5 @@ evals/                    golden set, labeled data, and the scripts behind every
 tests/                    272 tests, no network
 Dockerfile, render.yaml   container + blueprint for a hosted instance
 docs/EVALUATION.md        the full measurement write-up
-.github/workflows/ci.yml  runs the 241 tests that need no ledger and no key
+.github/workflows/ci.yml  runs the 257 tests that need no ledger and no key
 ```

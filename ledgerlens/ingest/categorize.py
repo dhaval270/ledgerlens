@@ -21,7 +21,7 @@ import enum
 import functools
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, Field
@@ -103,7 +103,7 @@ def _category_ids(conn: sqlite3.Connection) -> dict[str, int]:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # --- dispatch ----------------------------------------------------------------
@@ -143,7 +143,8 @@ def categorize(
     # tier 2 — learned default for this merchant
     if merchant_id is not None:
         row = conn.execute(
-            "SELECT default_category_id FROM merchants WHERE id = ? AND default_category_id IS NOT NULL",
+            "SELECT default_category_id FROM merchants"
+            " WHERE id = ? AND default_category_id IS NOT NULL",
             (merchant_id,),
         ).fetchone()
         if row:
@@ -176,7 +177,9 @@ def categorize(
 def _merchant_name(conn: sqlite3.Connection, merchant_id: int | None) -> str | None:
     if merchant_id is None:
         return None
-    row = conn.execute("SELECT canonical_name FROM merchants WHERE id = ?", (merchant_id,)).fetchone()
+    row = conn.execute(
+        "SELECT canonical_name FROM merchants WHERE id = ?", (merchant_id,)
+    ).fetchone()
     return row[0] if row else None
 
 

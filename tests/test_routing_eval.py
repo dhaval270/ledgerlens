@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from evals.run_routing_eval import is_rate_limited, run    # noqa: E402
+from evals.run_routing_eval import is_rate_limited
 
 RATE_LIMIT = ("RateLimitError: Error code: 429 - {'error': {'message': "
               "'Rate limit reached for model ... on tokens per day (TPD)'}}")

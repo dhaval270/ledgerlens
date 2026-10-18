@@ -37,3 +37,31 @@ filterwarnings = [
     # warning appearing has nothing to stand out against.
     "ignore:Using `httpx` with `starlette.testclient`",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"   # the container runs 3.12; local dev is 3.14
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "SIM", "UP", "RUF", "BLE"]
+ignore = [
+    # Several tool nodes catch Exception deliberately and say so in a comment
+    # beside the handler: a failing anomaly detector or a missing vector index
+    # degrades the answer, and taking the whole graph down over it would be a
+    # worse outcome than a partial one. The rule is right in general and wrong
+    # for the specific thing this codebase does on purpose.
+    "BLE001",
+    # `file: UploadFile = File(...)` is how FastAPI declares an upload. The
+    # rule cannot know the default is a marker object, not a live call.
+    "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The reference queries are SQL literals. Wrapping them to satisfy a line
+# length would make the thing being asserted harder to read than the rule is
+# worth.
+"evals/*" = ["E501"]
+# Data tables: a 50-state list and the synthetic merchant catalog. Wrapping a
+# literal table to satisfy a line length makes it harder to read, not easier.
+"ledgerlens/synthetic.py" = ["E501"]
+"ledgerlens/ingest/merchants.py" = ["E501"]

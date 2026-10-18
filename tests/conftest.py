@@ -18,9 +18,9 @@ from pathlib import Path
 # it here wins over .env.
 os.environ["LEDGERLENS_DB"] = str(Path(__file__).resolve().parent.parent / "ledger.db")
 
-import pytest  # noqa: E402
+import pytest
 
-from ledgerlens.synthetic import OUT_DIR, write  # noqa: E402
+from ledgerlens.synthetic import OUT_DIR, write
 
 SYNTHETIC_CSV = OUT_DIR / "transactions.csv"
 

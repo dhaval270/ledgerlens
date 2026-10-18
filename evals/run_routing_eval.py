@@ -41,10 +41,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # evals/ is not a package
 
-from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
-
 from langchain_core.callbacks import get_usage_metadata_callback
 
+from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
 from evals.run_golden_eval import USD_PER_MTOK_IN, USD_PER_MTOK_OUT, _tokens, matches
 
 GOLDEN = Path(__file__).parent / "golden_queries.jsonl"

@@ -39,7 +39,7 @@ _thread_ids = itertools.count(1)
 _ERRORS = {cls.__name__: cls for cls in (ApprovalError, StaleProposal)}
 
 
-def _raise(state: "ApprovalState") -> None:
+def _raise(state: ApprovalState) -> None:
     if state.get("error"):
         raise _ERRORS.get(state.get("error_type", ""), ApprovalError)(state["error"])
 

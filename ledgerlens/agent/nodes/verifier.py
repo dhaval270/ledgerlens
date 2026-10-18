@@ -21,6 +21,7 @@ incorrect answer.
 from __future__ import annotations
 
 import re
+from contextlib import suppress
 from datetime import date
 from typing import Any
 
@@ -137,10 +138,10 @@ def _dates_in_range(text: str, tool_results: list[dict]) -> tuple[bool, str]:
             for value in row.values():
                 if isinstance(value, str):
                     for match in _ISO_DATE.finditer(value):
-                        try:
+                        # A date-shaped string that is not a date (2026-13-45)
+                        # is simply not a retrieved date.
+                        with suppress(ValueError):
                             retrieved.append(date.fromisoformat(match.group(0)))
-                        except ValueError:
-                            pass
 
     if not retrieved:
         return True, ""
@@ -152,7 +153,8 @@ def _dates_in_range(text: str, tool_results: list[dict]) -> tuple[bool, str]:
         except ValueError:
             continue
         if not (lo <= claimed <= hi):
-            return False, f"answer references {claimed.isoformat()}, outside retrieved range {lo}..{hi}"
+            return False, (f"answer references {claimed.isoformat()}, "
+                           f"outside retrieved range {lo}..{hi}")
 
     for match in _YEAR.finditer(text):
         year = int(match.group(0))

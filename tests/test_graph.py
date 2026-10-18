@@ -11,7 +11,6 @@ from ledgerlens.agent.graph import (
 )
 from ledgerlens.agent.nodes.planner import MAX_REPLANS
 
-
 # --- routing after the planner ----------------------------------------------
 
 def test_refusal_skips_the_tools():

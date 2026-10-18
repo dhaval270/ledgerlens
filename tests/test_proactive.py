@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, timedelta
+from datetime import date
 
 import pytest
 
@@ -177,7 +177,8 @@ def test_no_budget_means_no_overspend_finding(conn):
 def test_exceeding_a_budget_is_flagged(conn):
     cid = conn.execute("SELECT id FROM categories WHERE name='shopping'").fetchone()[0]
     conn.execute(
-        "INSERT INTO budgets (category_id, limit_amount, active_from) VALUES (?, 100.0, '2025-01-01')",
+        "INSERT INTO budgets (category_id, limit_amount, active_from)"
+        " VALUES (?, 100.0, '2025-01-01')",
         (cid,),
     )
     m = merchant(conn, "Amazon", "shopping")
@@ -190,7 +191,8 @@ def test_exceeding_a_budget_is_flagged(conn):
 def test_staying_under_budget_is_not_flagged(conn):
     cid = conn.execute("SELECT id FROM categories WHERE name='shopping'").fetchone()[0]
     conn.execute(
-        "INSERT INTO budgets (category_id, limit_amount, active_from) VALUES (?, 500.0, '2025-01-01')",
+        "INSERT INTO budgets (category_id, limit_amount, active_from)"
+        " VALUES (?, 500.0, '2025-01-01')",
         (cid,),
     )
     m = merchant(conn, "Amazon", "shopping")

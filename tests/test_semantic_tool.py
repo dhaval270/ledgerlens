@@ -12,7 +12,7 @@ import pytest
 
 from ledgerlens.agent.graph import route_after_planner, route_after_semantic
 from ledgerlens.agent.nodes import semantic_tool as mod
-from ledgerlens.agent.nodes.semantic_tool import INDEX_PATH, search, semantic_tool
+from ledgerlens.agent.nodes.semantic_tool import search, semantic_tool
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def test_k_larger_than_index_does_not_crash(fake_index):
 
 
 def test_missing_index_raises_a_useful_error(tmp_path):
-    with pytest.raises(FileNotFoundError, match="ledgerlens.index"):
+    with pytest.raises(FileNotFoundError, match=r"ledgerlens\.index"):
         search("anything", index_path=tmp_path / "absent.npz")
 
 

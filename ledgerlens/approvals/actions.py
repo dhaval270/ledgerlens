@@ -26,7 +26,7 @@ import hashlib
 import json
 import sqlite3
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 class ApprovalError(Exception):
@@ -62,7 +62,7 @@ def _fingerprint(before: dict) -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _category_id(conn: sqlite3.Connection, name: str) -> int:
@@ -206,7 +206,8 @@ def preview_set_budget(conn: sqlite3.Connection, category: str, limit_amount: fl
         raise ApprovalError("a budget limit must be positive")
     category_id = _category_id(conn, category)
     existing = conn.execute(
-        "SELECT id, limit_amount FROM budgets WHERE category_id = ? ORDER BY active_from DESC LIMIT 1",
+        "SELECT id, limit_amount FROM budgets WHERE category_id = ?"
+        " ORDER BY active_from DESC LIMIT 1",
         (category_id,),
     ).fetchone()
 

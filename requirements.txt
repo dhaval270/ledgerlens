@@ -27,4 +27,5 @@ python-multipart==0.0.32   # required for UploadFile; FastAPI raises without it
 
 # --- eval + dev ---
 pytest==9.1.1
+ruff==0.17.1
 python-dotenv==1.2.2

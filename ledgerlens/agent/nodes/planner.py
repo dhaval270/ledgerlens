@@ -44,7 +44,7 @@ MAX_REPLANS = 2
 MAX_STEPS = 4
 
 
-class Tool(str, enum.Enum):
+class Tool(enum.StrEnum):
     SQL = "sql"
     SEMANTIC = "semantic"
     ANOMALY = "anomaly"

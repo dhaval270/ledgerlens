@@ -25,7 +25,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
-
 from ledgerlens.agent.nodes.verifier import verify
 from ledgerlens.db import DB_PATH, connect_readonly
 
@@ -93,7 +92,7 @@ def main() -> int:
                 false_rejections.append((entry["id"], truth["reason"]))
 
             # 2. every corruption must be rejected
-            for label, corrupt in CORRUPTIONS:
+            for _label, corrupt in CORRUPTIONS:
                 bad = corrupt(entry["expected_value"])
                 if abs(abs(bad) - abs(entry["expected_value"])) < MIN_CORRUPTION_DELTA:
                     continue  # too close to the truth to be a fair trial
@@ -103,7 +102,7 @@ def main() -> int:
                 if not verify(_draft(bad), tool_results)["pass"]:
                     caught += 1
 
-    print(f"=== §9.3 verifier catch rate ===")
+    print("=== §9.3 verifier catch rate ===")
     print(f"  numeric questions tested   {len(numeric)}")
     print(f"  corrupted answers injected {attempted}")
     print(f"  caught                     {caught}  ({caught / attempted * 100:.1f}%)")

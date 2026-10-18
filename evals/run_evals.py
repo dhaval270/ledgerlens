@@ -30,12 +30,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
+import run_golden_eval
+import run_merchant_eval
+import run_routing_eval
+import run_verifier_eval
 
-import run_golden_eval  # noqa: E402
-import run_merchant_eval  # noqa: E402
-import run_routing_eval  # noqa: E402
-import run_verifier_eval  # noqa: E402
+from evals import _benchmark  # noqa: F401  (pins LEDGERLENS_DB before ledgerlens loads)
 
 
 def main() -> int:
