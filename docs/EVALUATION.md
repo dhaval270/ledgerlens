@@ -17,33 +17,72 @@ costs when it is ignored.
 retired — the model id now returns a 404.** Those numbers were real when taken and cannot be
 reproduced today, so they are labelled rather than deleted or quietly restated.
 
-## Query accuracy — 53 golden queries *(historical)*
+## Query accuracy — 66 golden queries
 
 | Metric | Value |
 |---|---|
-| Execution accuracy, answerable questions | **80.4%** (37/46) |
+| Execution accuracy, answerable questions | **83.1%** (49/59) |
 | Refusal accuracy, unanswerable questions | **100%** (7/7) |
-| Whole golden set | **83.0%** (44/53) |
+| Whole golden set | **84.8%** (56/66) |
 | SQL validity, first attempt | 100% |
 | SQL validity, after repair | 100% |
 | Queries rescued by the repair loop | 0 |
-| Median latency | 4.63 s |
-| p90 latency | 5.63 s |
-| Median tokens per query | 958 in / 56.5 out |
-| Cost per query | ~$0.0006 |
+| Median latency | 7.07 s |
+| p90 latency | 10.60 s |
+| Cost per query | ~$0.0008 |
 
 ```
 python evals/run_golden_eval.py
 ```
 
-The repair loop rescued nothing on this run, and that is worth stating plainly rather than
-hiding: with the 70B, first-attempt SQL validity is already 100%, so there is nothing left for it
-to repair. It earned its place against the 8B (95.7% first-attempt) and is now insurance.
+Current, on `openai/gpt-oss-120b`. The previous reading — 80.4% over 46 answerable queries — was
+taken on `llama-3.3-70b-versatile` before Groq retired it, and against a smaller golden set. The
+two are not a before/after: the question set grew between them, so this is a fresh measurement,
+not an improvement of 2.7 points.
 
-This table measures the SQL tool, not the agent: `run_golden_eval.py` calls `run_query()`
-directly, so the planner never ran and the graph was never built. That is a real number for
-text-to-SQL and it is not a number for a three-tool agent — which is what the routing table below
-exists to measure, and why it reads so much lower.
+The repair loop again rescued nothing, and that is worth stating plainly rather than hiding:
+first-attempt SQL validity is 100%, so there is nothing left for it to repair. It earned its place
+against `llama-3.1-8b-instant` (95.7% first-attempt) and is now insurance.
+
+This table measures the SQL tool, not the agent: `run_golden_eval.py` calls `run_query()` directly,
+so the planner never ran and the graph was never built. That is a real number for text-to-SQL and
+it is not a number for a three-tool agent — which is what the routing table below exists to
+measure, and why it reads so much lower.
+
+### Where the 10 failures are
+
+| Query | Expected | Returned | What went wrong |
+|---|---|---|---|
+| `anom-03` | 2995.7 | −2995.7 | sign convention |
+| `anom-04` | 535.44 | −459.12 | sign convention, and the spike not excluded |
+| `sem-09` | −44.0 | 44.0 | sign convention |
+| `sem-04` | −324.87 | −368.87 | wrong row set — the wording's scope was not resolved |
+| `sem-06` | −5830.16 | −7586.88 | wrong row set |
+| `sem-08` | −948.0 | −1133.88 | wrong row set |
+| `anom-05` | `groceries` | 1 | returned a count where a label was asked for |
+| `anom-06` | 15 | 4 | aggregation level |
+| `cmp-07` | `no` | 1 | returned a count where a yes/no was asked for |
+| `rec-02` | `Spotify` | 1 | returned a count where a label was asked for |
+
+Three clusters, and none of them is a SQL-generation failure. Every one of these queries is valid
+SQL that executed and returned a number.
+
+**Sign convention (3).** `amount` is negative for outflow, so a total comes back negated unless the
+query knows that. This has been the dominant failure class since the first eval.
+
+**Wrong column shape (3).** The question asks *which* merchant or *whether* something happened; the
+query answers *how many*. `SELECT COUNT(*)` where the answer key holds a label.
+
+**Scope resolution (4).** The `sem-*` failures are the interesting ones, because they are the
+questions this harness is least suited to. Asked directly as text-to-SQL, with no retrieval step to
+resolve what "anything medical-looking" refers to, the model guesses a filter and guesses wrong.
+That is the gap `semantic_tool` exists to close, and measuring it here — where the tool is bypassed
+— is what shows the tool is load-bearing rather than decorative.
+
+**Safety nets catch failure, not wrongness.** All ten pass the verifier, because every figure did
+come from a retrieved row. The repair loop only sees exceptions. A confidently wrong query looks
+exactly like a right one from the outside, which is why the fix for the first cluster is teaching
+the sign convention in the prompt rather than adding another guard.
 
 ## Routing — 18 questions through the whole graph
 
@@ -173,26 +212,6 @@ The honest reading: the 8B's run-to-run noise floor is 2.2 points, but the 70B's
 points, so a +15.2 point gap is suggestive rather than decisive. Two prompt rewrites on the 8B
 moved accuracy by −4.4 and −2.2 points, both inside its noise — measuring the noise floor first
 is what stopped me from shipping either as an improvement.
-
-## Where the 9 remaining failures come from *(historical)*
-
-| Cause | Count |
-|---|---|
-| Sign convention (`amount` is negative for outflow) | 4 |
-| Aggregation level (per-transaction vs per-month) | 2 |
-| Wrong `type` filter (fees are `type='fee'`, not `'purchase'`) | 1 |
-| Wrong date range | 1 |
-| Correct row, wrong column returned | 1 |
-
-The dominant failure class is a single schema convention. `ORDER BY typical_amount DESC` returns
-the *cheapest* recurring charge; `SUM(income) - SUM(purchase)` *adds* spending to income. These
-are the failures the safety nets cannot catch: the SQL is valid, it executes, it returns a
-number, and the verifier confirms that number came from a row — because it did. **Safety nets
-catch failure, not wrongness.** The repair loop only sees exceptions, confidence thresholds only
-see uncertainty, and a confidently wrong query looks exactly like a right one from the outside.
-Fixing this class means teaching the sign convention in the prompt, not adding another guard.
-
----
 
 ## Reproducibility
 

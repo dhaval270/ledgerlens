@@ -135,9 +135,9 @@ with the decision defaulted, but a graph parked on an interrupt has no default t
 
 | | |
 |---|---|
-| Text-to-SQL execution accuracy, 46 answerable queries | **80.4%** *(historical)* |
-| Refusal accuracy, 7 unanswerable queries | **100%** *(historical)* |
-| SQL validity, first attempt | **100%** *(historical)* |
+| Text-to-SQL execution accuracy, 59 answerable queries | **83.1%** |
+| Refusal accuracy, 7 unanswerable queries | **100%** |
+| SQL validity, first attempt | **100%** |
 | Verifier catch rate on injected wrong numbers | **100%** (161/161) |
 | Verifier false-rejection rate on correct answers | **0%** (0/41) |
 | Merchant cluster accuracy, 0 splits / 0 merges | **100%** *(historical)* |
@@ -151,8 +151,8 @@ code changed between them. Treat single-digit differences as noise.
 
 ***Historical*** **means measured on `llama-3.3-70b-versatile`, which Groq has retired** — the
 model id now 404s. Those numbers were real when taken and cannot be reproduced today, so they are
-labelled rather than deleted or quietly restated. The verifier row is current, because that suite
-makes no API calls.
+labelled rather than deleted or quietly restated. The query-accuracy and verifier rows are current:
+the golden set was re-run on `gpt-oss-120b`, and the verifier suite makes no API calls at all.
 
 📊 **[Full evaluation write-up →](docs/EVALUATION.md)** — every number above, the methodology
 behind it, and an honest account of what each one does *not* support.
