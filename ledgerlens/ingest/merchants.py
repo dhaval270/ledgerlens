@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, Field
@@ -35,10 +35,7 @@ class Resolution(NamedTuple):
 
 # --- tier 2: deterministic noise removal -------------------------------------
 
-US_STATES = (
-    "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO "
-    "MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY"
-).split()
+US_STATES = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"]
 
 # Order matters: prefixes come off before refs, refs before trailing geography.
 STRIP_PATTERNS: list[tuple[str, str]] = [
@@ -179,7 +176,7 @@ def _llm_resolve(descriptor: str, known: list[str]) -> tuple[str, float]:
 # --- storage -----------------------------------------------------------------
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _tokens(name: str) -> list[str]:

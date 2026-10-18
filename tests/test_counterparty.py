@@ -5,6 +5,11 @@ have ever paid into one row, so a join cannot answer "how much did I send to X?"
 and the name survives only inside `raw_descriptor`. Observed live: the model
 wrote `WHERE m.canonical_name = 'Dhaval Patel'` — the right shape against a
 schema where payees are merchants.
+
+Names and confirmation codes below are invented. The parser was developed
+against real Zelle statements, but a tool whose whole argument is that
+financial data deserves care should not ship anyone's payment history in its
+own test suite.
 """
 
 from __future__ import annotations
