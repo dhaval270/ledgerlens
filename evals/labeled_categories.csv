@@ -1,0 +1,201 @@
+raw_descriptor,expected_merchant,expected_category
+AMC #64682 BOSTON MA,AMC Theatres,entertainment
+AMC ONLINE HQGANSTZ8,AMC Theatres,entertainment
+AMC #44938 PORTLAND OR,AMC Theatres,entertainment
+AMC ONLINE GLY4Q0FEJ,AMC Theatres,entertainment
+AMC #92737 PORTLAND OR,AMC Theatres,entertainment
+AMC ONLINE 8VANWZFJF,AMC Theatres,entertainment
+AMC #40144 SEATTLE WA,AMC Theatres,entertainment
+AMC #58015 DENVER CO,AMC Theatres,entertainment
+AMC #21615 PORTLAND OR,AMC Theatres,entertainment
+AMC ONLINE JT414WWV6,AMC Theatres,entertainment
+ADOBE *CREATIVE CLD,Adobe,subscriptions
+ADOBE INC. 408-536-6000 CA,Adobe,subscriptions
+ADOBE INC. 408-536-6000 CA,Adobe,subscriptions
+ADOBE INC. 408-536-6000 CA,Adobe,subscriptions
+ADOBE INC. 408-536-6000 CA,Adobe,subscriptions
+ADOBE INC. 408-536-6000 CA,Adobe,subscriptions
+AMAZON.COM*G239CPJJB AMZN.COM/BILL,Amazon,shopping
+AMAZON.COM*ETVFHA689 AMZN.COM/BILL,Amazon,shopping
+AMZN Mktp US*BXL5WBHUT,Amazon,shopping
+AMAZON.COM*7DYX1ZEBQ AMZN.COM/BILL,Amazon,shopping
+AMAZON.COM*N5XCJ5QNR AMZN.COM/BILL,Amazon,shopping
+AMZN Mktp US*C538PNN6W,Amazon,shopping
+AMAZON.COM*BAAQSUNBR AMZN.COM/BILL,Amazon,shopping
+AMAZON.COM*G6TEM6WYM AMZN.COM/BILL,Amazon,shopping
+AMZN Mktp US*TVA8RK9GW,Amazon,shopping
+AMZN Mktp US*YLU4KK7ZN,Amazon,shopping
+AMZN Mktp US*KX3NP3WBE,Amazon,shopping
+AMZN Mktp US*89HVH9R3T,Amazon,shopping
+AMAZON.COM*W2ZHS4SEL AMZN.COM/BILL,Amazon,shopping
+AMAZON.COM*35MA9J1QS AMZN.COM/BILL,Amazon,shopping
+AMAZON.COM*DC44VM8N0 AMZN.COM/BILL,Amazon,shopping
+SQ *BLUE BOTTLE AUSTIN TX,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE PORTLAND OR,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE CHICAGO IL,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE DENVER,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE BOSTON MA,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE CHICAGO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE DENVER CO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE AUSTIN,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE CHICAGO IL,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE CHICAGO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE SEATTLE,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE DENVER,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE BOSTON MA,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE PORTLAND,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE AUSTIN TX,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE DENVER CO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE PORTLAND OR,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE BOSTON,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE CHICAGO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE PORTLAND,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE SEATTLE WA,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE DENVER CO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE SEATTLE,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE SEATTLE WA,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE BOSTON MA,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE DENVER CO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE BOSTON MA,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE CHICAGO IL,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE SEATTLE WA,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE SEATTLE,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE BOSTON,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE PORTLAND,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE PORTLAND,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE PORTLAND OR,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE AUSTIN,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE BOSTON,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE CHICAGO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE BOSTON,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE SEATTLE,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE AUSTIN,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE SEATTLE WA,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE CHICAGO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE CHICAGO,Blue Bottle Coffee,coffee
+SQ *BLUE BOTTLE COFFEE BOSTON,Blue Bottle Coffee,coffee
+CVS/PHARMACY #56138 BOSTON,CVS Pharmacy,health
+CVS 93806 BOSTON MA,CVS Pharmacy,health
+CVS/PHARMACY #55431 PORTLAND,CVS Pharmacy,health
+CVS 88775 CHICAGO IL,CVS Pharmacy,health
+CVS/PHARMACY #03080 BOSTON,CVS Pharmacy,health
+CVS/PHARMACY #86582 PORTLAND,CVS Pharmacy,health
+CVS/PHARMACY #44542 CHICAGO,CVS Pharmacy,health
+CVS/PHARMACY #33423 CHICAGO,CVS Pharmacy,health
+CVS/PHARMACY #52471 SEATTLE,CVS Pharmacy,health
+CVS 32013 AUSTIN TX,CVS Pharmacy,health
+CVS 36427 SEATTLE WA,CVS Pharmacy,health
+TST* CHIPOTLE - SEATTLE,Chipotle,dining
+CHIPOTLE 55084 BOSTON MA,Chipotle,dining
+CHIPOTLE 28467 BOSTON MA,Chipotle,dining
+TST* CHIPOTLE - SEATTLE,Chipotle,dining
+CHIPOTLE 3492 CHICAGO IL,Chipotle,dining
+TST* CHIPOTLE - BOSTON,Chipotle,dining
+TST* CHIPOTLE - BOSTON,Chipotle,dining
+CHIPOTLE 52720 BOSTON MA,Chipotle,dining
+CHIPOTLE 68559 SEATTLE WA,Chipotle,dining
+TST* CHIPOTLE - PORTLAND,Chipotle,dining
+TST* CHIPOTLE - DENVER,Chipotle,dining
+CHIPOTLE 34183 CHICAGO IL,Chipotle,dining
+TST* CHIPOTLE - DENVER,Chipotle,dining
+CHIPOTLE 34755 CHICAGO IL,Chipotle,dining
+CHIPOTLE 56187 SEATTLE WA,Chipotle,dining
+TST* CHIPOTLE - PORTLAND,Chipotle,dining
+TST* CHIPOTLE - SEATTLE,Chipotle,dining
+CHIPOTLE 13398 BOSTON MA,Chipotle,dining
+TST* CHIPOTLE - CHICAGO,Chipotle,dining
+TST* CHIPOTLE - PORTLAND,Chipotle,dining
+TST* CHIPOTLE - CHICAGO,Chipotle,dining
+COMCAST *XFINITY 0725,Comcast,utilities
+DELTA AIR LINES 0412,Delta Air Lines,travel
+DELTA AIR LINES 0426,Delta Air Lines,travel
+DELTA AIR RE9T2G5S3 ATLANTA GA,Delta Air Lines,travel
+GREENLINE APTS RENT 1126,Greenline Apartments,rent
+GREENLINE APTS RENT 1227,Greenline Apartments,rent
+GREENLINE APTS RENT 0127,Greenline Apartments,rent
+GREENLINE APTS RENT 0227,Greenline Apartments,rent
+MARRIOTT SEATTLE WA,Marriott,travel
+NETFLIX *MONTHLY,Netflix,subscriptions
+NETFLIX *MONTHLY,Netflix,subscriptions
+PLANET FIT #52475 BOSTON MA,Planet Fitness,health
+PLANET FIT #17612 CHICAGO IL,Planet Fitness,health
+PLANET FIT #17124 CHICAGO IL,Planet Fitness,health
+SHELL SERVICE STATION #50266,Shell,transport
+SHELL OIL 00024767 AUSTIN TX,Shell,transport
+SHELL SERVICE STATION #50236,Shell,transport
+SHELL SERVICE STATION #62290,Shell,transport
+SHELL OIL 00072305 CHICAGO IL,Shell,transport
+SHELL OIL 00039592 BOSTON MA,Shell,transport
+SHELL OIL 00069547 CHICAGO IL,Shell,transport
+SHELL SERVICE STATION #41040,Shell,transport
+SPOTIFY P0067171 NEW YORK NY,Spotify,subscriptions
+SPOTIFY P0062700 NEW YORK NY,Spotify,subscriptions
+TARGET T-66934 AUSTIN TX,Target,shopping
+TARGET.COM * 934U9C19Q,Target,shopping
+TARGET T-36542 PORTLAND OR,Target,shopping
+TARGET T-2056 CHICAGO IL,Target,shopping
+TARGET.COM * 4HYWQJVPU,Target,shopping
+TARGET.COM * LXUW5CZ77,Target,shopping
+TARGET.COM * NR9GF295Z,Target,shopping
+TARGET.COM * CES8KK82T,Target,shopping
+TARGET.COM * 7RF3A40VC,Target,shopping
+TARGET.COM * PUKBX7G9W,Target,shopping
+TARGET T-36391 AUSTIN TX,Target,shopping
+TARGET T-44147 SEATTLE WA,Target,shopping
+TARGET T-32922 DENVER CO,Target,shopping
+TARGET T-9216 PORTLAND OR,Target,shopping
+TARGET T-78540 PORTLAND OR,Target,shopping
+TRADER JOE'S #35377 BOSTON MA,Trader Joe's,groceries
+TRADER JOES #54866 QPS SEATTLE,Trader Joe's,groceries
+TRADER JOE'S #99196 SEATTLE WA,Trader Joe's,groceries
+TRADER JOES #37810 QPS CHICAGO,Trader Joe's,groceries
+TRADER JOES #20741 QPS CHICAGO,Trader Joe's,groceries
+TRADER JOES #60069 QPS SEATTLE,Trader Joe's,groceries
+TRADER JOE'S #54687 SEATTLE WA,Trader Joe's,groceries
+TRADER JOES #42251 QPS DENVER,Trader Joe's,groceries
+TRADER JOES #77305 QPS AUSTIN,Trader Joe's,groceries
+TRADER JOE'S #53203 AUSTIN TX,Trader Joe's,groceries
+TRADER JOES #23976 QPS CHICAGO,Trader Joe's,groceries
+TRADER JOE'S #50965 PORTLAND OR,Trader Joe's,groceries
+TRADER JOE'S #69995 BOSTON MA,Trader Joe's,groceries
+TRADER JOE'S #73417 BOSTON MA,Trader Joe's,groceries
+TRADER JOES #87554 QPS PORTLAND,Trader Joe's,groceries
+TRADER JOE'S #87097 DENVER CO,Trader Joe's,groceries
+TRADER JOES #19583 QPS DENVER,Trader Joe's,groceries
+TRADER JOE'S #4310 SEATTLE WA,Trader Joe's,groceries
+TRADER JOES #38030 QPS CHICAGO,Trader Joe's,groceries
+TRADER JOES #19672 QPS DENVER,Trader Joe's,groceries
+TRADER JOE'S #81434 SEATTLE WA,Trader Joe's,groceries
+TRADER JOE'S #75991 AUSTIN TX,Trader Joe's,groceries
+TRADER JOES #24401 QPS SEATTLE,Trader Joe's,groceries
+TRADER JOES #56539 QPS SEATTLE,Trader Joe's,groceries
+TRADER JOES #75324 QPS SEATTLE,Trader Joe's,groceries
+UBER *TRIP 0821,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER *TRIP 1026,Uber,transport
+UBER *TRIP 1028,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER *TRIP 1205,Uber,transport
+UBER *TRIP 0118,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER *TRIP 0626,Uber,transport
+UBER TRIP HELP.UBER.COM,Uber,transport
+UBER *TRIP 0720,Uber,transport
+WHOLE FOODS MKT CHICAGO IL 0817,Whole Foods,groceries
+WHOLEFDS SEATTLE #75635,Whole Foods,groceries
+WHOLE FOODS MKT AUSTIN TX 1004,Whole Foods,groceries
+WHOLEFDS DENVER #49965,Whole Foods,groceries
+WHOLE FOODS MKT DENVER CO 1203,Whole Foods,groceries
+WHOLEFDS PORTLAND #08378,Whole Foods,groceries
+WHOLE FOODS MKT CHICAGO IL 0215,Whole Foods,groceries
+WHOLEFDS AUSTIN #73999,Whole Foods,groceries
+WHOLEFDS BOSTON #48193,Whole Foods,groceries
+WHOLEFDS BOSTON #53422,Whole Foods,groceries
+WHOLE FOODS MKT DENVER CO 0625,Whole Foods,groceries
+WHOLEFDS CHICAGO #02297,Whole Foods,groceries
